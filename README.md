@@ -20,7 +20,8 @@ The business wants to get this off the ground ASAP! Here's what they are after:
 
 Your job is to design a solution to meet the above requirements. 
 
-You are encouraged to fork this repository and make any updates required to achieve the above.
+You are encouraged to clone this repository, create a development branch and make any updates required to achieve the above.
+Open a Pull Request to master once you are ready to submit your solution.
 
 The tools and technologies you use are totally up to you, the only requirements are listed above.
 
