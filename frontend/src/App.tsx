@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
-import "./App.css";
+import { useCallback, useEffect, useState } from 'react';
+import './App.css';
 
 type Todo = {
   id: string;
   summary: string;
   done: boolean;
 };
-type TodoDetails = Omit<Todo, "id">;
+type TodoDetails = Omit<Todo, 'id'>;
 
 const todoApi = createTodoApi();
 
@@ -69,21 +69,24 @@ function App() {
 }
 
 function AddTodoForm(props: { addTodo: (details: TodoDetails) => void }) {
-  const {addTodo} = props;
+  const { addTodo } = props;
   const [summary, setSummary] = useState('');
 
   const addHandler = useCallback(() => {
-    addTodo({summary, done: false});
+    addTodo({ summary, done: false });
     setSummary('');
   }, [addTodo, summary]);
 
   return (
-    <form onSubmit={(e) => {e.preventDefault(); addHandler()}}>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        addHandler();
+      }}
+    >
       <div className="add-todo-container">
         <input name="summary" value={summary} onChange={(e) => setSummary(e.target.value)} />
-        <button type="submit">
-          Add
-        </button>
+        <button type="submit">Add</button>
       </div>
     </form>
   );
@@ -99,13 +102,25 @@ function TodoItem(props: {
   const [done, setDone] = useState(todo.done);
 
   const triggerUpdate = useCallback(() => {
-    updateTodo(todo.id, { summary, done })
+    updateTodo(todo.id, { summary, done });
   }, [done, summary, todo.id, updateTodo]);
 
   return (
     <li>
-      <input type="checkbox" checked={done} onChange={(e) => {setDone(e.target.checked); triggerUpdate()}} />
-      <input name="summary" value={summary} onChange={(e) => setSummary(e.target.value)} onBlur={() => triggerUpdate()} />
+      <input
+        type="checkbox"
+        checked={done}
+        onChange={(e) => {
+          setDone(e.target.checked);
+          triggerUpdate();
+        }}
+      />
+      <input
+        name="summary"
+        value={summary}
+        onChange={(e) => setSummary(e.target.value)}
+        onBlur={() => triggerUpdate()}
+      />
       <button type="button" onClick={() => removeTodo(todo.id)}>
         X
       </button>
@@ -115,7 +130,7 @@ function TodoItem(props: {
 
 function createTodoApi() {
   const baseUrl = import.meta.env.VITE_TODO_API_URL;
-  if(!baseUrl) {
+  if (!baseUrl) {
     throw new Error('VITE_TODO_API_URL must be set');
   }
 
@@ -130,9 +145,9 @@ function createTodoApi() {
     },
     async add(details: TodoDetails) {
       const res = await fetch(`${baseUrl}/`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(details),
       });
@@ -144,9 +159,9 @@ function createTodoApi() {
     },
     async update(id: string, details: TodoDetails) {
       const res = await fetch(`${baseUrl}/${id}`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(details),
       });
@@ -158,7 +173,7 @@ function createTodoApi() {
     },
     async remove(id: string) {
       const res = await fetch(`${baseUrl}/${id}`, {
-        method: "DELETE",
+        method: 'DELETE',
       });
       if (!res.ok) {
         console.error(res.statusText);

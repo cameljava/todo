@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID } from 'node:crypto';
 
 export type TodoId = string;
 export type Todo = {
@@ -7,7 +7,7 @@ export type Todo = {
   done: boolean;
 };
 export type TodoList = Todo[];
-export type TodoAdd = Omit<Todo, "id">;
+export type TodoAdd = Omit<Todo, 'id'>;
 export type TodoUpdate = Partial<TodoAdd>;
 
 export type TodoApp = {
@@ -65,7 +65,7 @@ export function createTodoApp(opts: CreateTodoAppOpts): TodoApp {
 export class ClientError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "ClientError";
+    this.name = 'ClientError';
   }
 }
 

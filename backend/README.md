@@ -26,6 +26,7 @@ npm run start
 ## HTTP API Features
 
 ### List Todos
+
 ```
 curl --request GET \
   --url http://localhost:3000/ \
@@ -33,6 +34,7 @@ curl --request GET \
 ```
 
 ### Add Todo
+
 ```
 curl --request POST \
   --url http://localhost:3000/ \
@@ -41,6 +43,7 @@ curl --request POST \
 ```
 
 ### Update Todo
+
 ```
 curl --request POST \
   --url http://localhost:3000/{id} \
@@ -49,6 +52,7 @@ curl --request POST \
 ```
 
 ### Remove Todo
+
 ```
 curl --request DELETE \
   --url http://localhost:3000/{id}
