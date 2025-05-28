@@ -1,6 +1,6 @@
 # Todo Project
 
-The bussiness has come up with a game-changing idea; one that will surely propel us to the stratosphere.
+The bussiness has come up with a game-changing idea; one that will surely propel us to the stratosphere.  
 The idea is an app that allows you to list items that need to be done, and check them off as they are completed; pretty revolutionary, huh?
 
 Within this repository you will find [backend](./backend) and [frontend](./frontend) projects.
@@ -11,14 +11,14 @@ The **frontend** is a beautiful HTML web UI, which provides a human interface to
 
 The business wants to get this off the ground ASAP! Here's what they are after:
 
-* The app is to be hosted in AWS
-* We expect a quick uptake in users from all around the world, obviously, so it will need to scale to support those users
-* There are plans to add new features, so there should be a process in place to deliver updates to both the backend and frontend
-* We move fast here! So we need to know if things go wrong
+- The app is to be hosted in AWS
+- We expect a quick uptake in users from all around the world, obviously, so it will need to scale to support those users
+- There are plans to add new features, so there should be a process in place to deliver updates to both the backend and frontend
+- We move fast here! So we need to know if things go wrong
 
 ## Instructions
 
-Your job is to design a solution to meet the above requirements. 
+Your job is to design a solution to meet the above requirements.
 
 You are encouraged to clone this repository, create a development branch and make any updates required to achieve the above.
 Open a Pull Request to master once you are ready to submit your solution.
