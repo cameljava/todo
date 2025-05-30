@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "frontend",
-    "backend"
+    "backend",
+    "infrastructure"
   ],
   "scripts": {
     "lint": "npm run lint --workspaces",
@@ -11,16 +12,9 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@eslint/js": "^9.21.0",
-    "@typescript-eslint/eslint-plugin": "^8.24.1",
-    "@typescript-eslint/parser": "^8.24.1",
-    "eslint": "^9.21.0",
-    "eslint-config-prettier": "^10.0.1",
-    "eslint-plugin-prettier": "^5.2.1",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.0",
-    "prettier": "^3.5.3",
-    "typescript": "^5.7.2"
+    "prettier": "^3.5.3"
   },
   "lint-staged": {
     "frontend/**/*.{js,jsx,ts,tsx}": [
@@ -30,6 +24,10 @@
     "backend/**/*.{js,ts}": [
       "cd backend && npm run lint -- --fix",
       "cd backend && npx prettier --write"
+    ],
+    "infrastructure/**/*.{js,ts}": [
+      "cd infrastructure && npm run lint -- --fix",
+      "cd infrastructure && npx prettier --write"
     ],
     "*.{json,md}": [
       "prettier --write"

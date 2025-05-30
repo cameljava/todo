@@ -1,0 +1,40 @@
+# Code Owners for Todo Application
+# These users/teams will be requested for review when changes are made to the specified files
+
+# Global code owners - default reviewers for all files
+* @kevinlee
+
+# Infrastructure changes require infrastructure team review
+/infrastructure/ @kevinlee @infrastructure-team
+
+# Security-related files require security team review
+/security/ @kevinlee @security-team
+/.semgrep.yml @kevinlee @security-team
+/.trivyignore @kevinlee @security-team
+
+# CI/CD pipeline changes require DevOps review
+/bitbucket-pipelines.yml @kevinlee @devops-team
+/.bitbucket/ @kevinlee @devops-team
+
+# Backend API changes
+/backend/ @kevinlee @backend-team
+
+# Frontend changes
+/frontend/ @kevinlee @frontend-team
+
+# Dependency updates (Renovate PRs) - require maintainer approval for major updates
+renovate.json @kevinlee
+package.json @kevinlee
+package-lock.json @kevinlee
+*/package.json @kevinlee
+*/package-lock.json @kevinlee
+
+# Documentation changes
+/docs/ @kevinlee @documentation-team
+README.md @kevinlee
+*.md @kevinlee
+
+# Root configuration files
+/.gitignore @kevinlee
+/.prettierrc @kevinlee
+/.husky/ @kevinlee 

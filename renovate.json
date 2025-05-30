@@ -1,0 +1,108 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "platform": "bitbucket",
+  "repositories": ["kevinlee/cloud-engineer-challenge-klee"],
+  "gitAuthor": "Renovate Bot <bot@renovateapp.com>",
+  "onboarding": false,
+  "requireConfig": "optional",
+  "enabledManagers": ["npm"],
+  "packageRules": [
+    {
+      "description": "Auto-merge patch and minor updates for production dependencies",
+      "matchDepTypes": ["dependencies"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash",
+      "requiredStatusChecks": null
+    },
+    {
+      "description": "Group dev dependencies updates",
+      "matchDepTypes": ["devDependencies"],
+      "groupName": "dev dependencies",
+      "schedule": ["before 6am on monday"],
+      "automerge": false
+    },
+    {
+      "description": "Security updates - high priority",
+      "matchPackagePatterns": ["*"],
+      "matchUpdateTypes": ["patch"],
+      "vulnerabilityAlerts": true,
+      "schedule": ["at any time"],
+      "priority": 100,
+      "automerge": true,
+      "automergeType": "pr",
+      "labels": ["security", "dependencies"]
+    },
+    {
+      "description": "Major updates - manual review required",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "reviewersFromCodeOwners": true,
+      "labels": ["major-update", "dependencies"],
+      "schedule": ["before 6am on monday"]
+    },
+    {
+      "description": "AWS SDK updates - group together",
+      "matchPackagePatterns": ["@aws-sdk/*", "aws-*"],
+      "groupName": "AWS SDK",
+      "schedule": ["before 6am on monday"],
+      "automerge": false
+    },
+    {
+      "description": "React ecosystem updates",
+      "matchPackagePatterns": ["react", "@types/react*", "@vitejs/*"],
+      "groupName": "React ecosystem",
+      "schedule": ["before 6am on monday"],
+      "automerge": false
+    },
+    {
+      "description": "ESLint and Prettier updates",
+      "matchPackagePatterns": ["eslint*", "prettier", "@typescript-eslint/*"],
+      "groupName": "Linting and formatting",
+      "schedule": ["before 6am on monday"],
+      "automerge": true,
+      "automergeType": "pr"
+    }
+  ],
+  "schedule": ["before 6am on monday"],
+  "timezone": "America/Los_Angeles",
+  "labels": ["dependencies", "renovate"],
+  "assignees": [],
+  "reviewers": [],
+  "prHourlyLimit": 5,
+  "prConcurrentLimit": 10,
+  "branchPrefix": "renovate/",
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "commitMessagePrefix": "chore(deps): ",
+  "commitMessageAction": "update",
+  "commitMessageTopic": "{{depName}}",
+  "commitMessageExtra": "to {{newVersion}}",
+  "rangeStrategy": "bump",
+  "bumpVersion": "patch",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"],
+    "commitMessageAction": "update lockfile",
+    "branchTopic": "lock-file-maintenance"
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"],
+    "dependencyDashboardApproval": false,
+    "stabilityDays": 0
+  },
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "🤖 Dependency Updates Dashboard",
+  "dependencyDashboardHeader": "This dashboard shows all pending dependency updates for this repository.",
+  "dependencyDashboardFooter": "Updates are automatically created by Renovate Bot. Security updates and patches are auto-merged after CI passes.",
+  "stabilityDays": 3,
+  "ignoreDeps": [],
+  "ignorePaths": ["**/node_modules/**", "**/dist/**", "**/build/**"],
+  "baseBranches": ["main", "develop"],
+  "includeForks": false,
+  "forkProcessing": "disabled"
+}

@@ -3,22 +3,23 @@ import assert from 'node:assert';
 import { createTodoApp, TodoAdd, TodoList } from './app.js';
 import { createInMemoryStore } from './store/inMemeoryStore.js';
 
-it('lists todos', () => {
+it('lists todos', async () => {
   const todos: TodoList = [
     { id: '1', summary: 'test 1', done: false },
     { id: '2', summary: 'test 2', done: false },
   ];
   const todoApp = createTodoApp({ store: createInMemoryStore(todos) });
-  assert.deepEqual(todoApp.list(), todos);
+  const result = await todoApp.list();
+  assert.deepEqual(result, todos);
 });
 
-it('adds a todo', () => {
+it('adds a todo', async () => {
   const todoApp = createTodoApp({ store: createInMemoryStore() });
   const todoDetails: TodoAdd = {
     summary: 'test add',
     done: false,
   };
-  const todo = todoApp.add(todoDetails);
+  const todo = await todoApp.add(todoDetails);
   assert(typeof todo.id === 'string');
   assert.deepEqual(
     {
@@ -32,32 +33,32 @@ it('adds a todo', () => {
   );
 });
 
-it('updates a todo', () => {
+it('updates a todo', async () => {
   const todos: TodoList = [
     { id: '1', summary: 'test 1', done: false },
     { id: '2', summary: 'test 2', done: false },
   ];
   const todoApp = createTodoApp({ store: createInMemoryStore(todos) });
-  todoApp.update('2', { done: true });
-  const updatedTodos = todoApp.list();
+  await todoApp.update('2', { done: true });
+  const updatedTodos = await todoApp.list();
   assert.deepEqual(updatedTodos, [
     { id: '1', summary: 'test 1', done: false },
     { id: '2', summary: 'test 2', done: true },
   ]);
 });
 
-it('throws when updating a todo that doesnt exist', () => {
+it('throws when updating a todo that doesnt exist', async () => {
   const todoApp = createTodoApp({ store: createInMemoryStore() });
-  assert.throws(() => todoApp.update('nope', { done: false }), /does not exist/);
+  await assert.rejects(async () => await todoApp.update('nope', { done: false }), /does not exist/);
 });
 
-it('removes a todo', () => {
+it('removes a todo', async () => {
   const todos: TodoList = [
     { id: '1', summary: 'test 1', done: false },
     { id: '2', summary: 'test 2', done: false },
   ];
   const todoApp = createTodoApp({ store: createInMemoryStore(todos) });
-  todoApp.remove('2');
-  const updatedTodos = todoApp.list();
+  await todoApp.remove('2');
+  const updatedTodos = await todoApp.list();
   assert.deepEqual(updatedTodos, [{ id: '1', summary: 'test 1', done: false }]);
 });

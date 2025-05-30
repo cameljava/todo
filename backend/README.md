@@ -1,73 +1,307 @@
-# ToDo Backend
+# Todo API Backend
 
-The powerful engine behind our new fangled app that is going to send us to the moon 🚀.
+A high-performance Fastify-based REST API for the Todo application with AWS Cognito authentication, DynamoDB persistence, and comprehensive monitoring.
 
-It consists of a backend application, and a server which provides an HTTP API.
+## Description
 
-## Scripts
+- **Framework**: Fastify with TypeScript for optimal performance
+- **Authentication**: AWS Cognito with JWT token validation
+- **Database**: DynamoDB with user-partitioned data storage
+- **Security**: Multi-layered rate limiting and CORS protection
+- **Monitoring**: Health endpoints with dependency verification
+- **Containerization**: Docker with multi-stage builds
+
+## Project Structure
 
 ```
-# Install Dependencies
+backend/
+├── src/
+│   ├── auth/                 # Authentication services
+│   │   ├── cognitoAuth.ts   # Cognito integration
+│   │   └── jwtValidator.ts  # JWT token validation
+│   ├── config/              # Configuration modules
+│   │   └── rateLimitConfig.ts
+│   ├── middleware/          # Fastify middleware
+│   │   └── auth.ts         # Authentication middleware
+│   ├── store/              # Data persistence layer
+│   │   ├── dynamoDbStore.ts # DynamoDB implementation
+│   │   └── inMemoryStore.ts # Development store
+│   ├── app.ts              # Core application logic
+│   └── server.ts           # HTTP server setup
+├── scripts/                # Utility scripts
+│   ├── init-dynamodb.js    # Local DynamoDB setup
+│   └── demo-jwt-verification.js
+├── Dockerfile              # Production container
+├── compose.yml             # Local development setup
+└── package.json
+```
+
+## Setup
+
+### Prerequisites
+
+- Node.js 22+
+- Docker and Docker Compose (for local development)
+- AWS CLI configured (for production deployment)
+
+### Installation
+
+```bash
+# Install dependencies
 npm install
 
-# Start Dev Server
+# Copy environment configuration
+cp env.example .env
+
+# Edit .env with your AWS configuration
+vim .env
+```
+
+### Environment Variables
+
+```bash
+# Required for production
+COGNITO_USER_POOL_ID=ap-southeast-2_xxxxxxxxx
+COGNITO_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
+AWS_REGION=ap-southeast-2
+DYNAMODB_TABLE_NAME=todo-app-prod-todos
+
+# Optional for local development
+DYNAMODB_ENDPOINT=http://localhost:8000
+NODE_ENV=development
+PORT=3000
+```
+
+## Run
+
+### Development Mode
+
+```bash
+# Option 1: Local with TypeScript watch mode
 npm run dev
 
-# Build
+# Option 2: Docker Compose with DynamoDB Local
+npm run docker:dev
+
+# Initialize local DynamoDB table (if using Docker)
+node scripts/init-dynamodb.js
+```
+
+### Production Mode
+
+```bash
+# Build TypeScript
 npm run build
 
-# Run Tests (from built files)
-npm run test
+# Start production server
+npm start
 
-# Start Server
-npm run start
+# Or build and run Docker container
+npm run docker:build
+npm run docker:run
 ```
 
-## HTTP API Features
+### Docker Development
 
-### List Todos
+```bash
+# Start all services (API + DynamoDB Local + Admin UI)
+docker-compose up --build
 
-```
-curl --request GET \
-  --url http://localhost:3000/ \
-  --header 'content-type: application/json'
-```
+# View logs
+docker-compose logs -f todo-api
 
-### Add Todo
-
-```
-curl --request POST \
-  --url http://localhost:3000/ \
-  --header 'content-type: application/json' \
-  --data '{ "summary": "Got to do this!", "done": false }'
+# Stop services
+docker-compose down
 ```
 
-### Update Todo
+## Test
 
+### API Testing
+
+```bash
+# Run unit tests
+npm test
+
+# Lint code
+npm run lint
+
+# Health check
+curl http://localhost:3000/health
+
+# Detailed health check
+curl http://localhost:3000/health/detailed
 ```
-curl --request POST \
-  --url http://localhost:3000/{id} \
-  --header 'content-type: application/json' \
-  --data '{ "done": true }'
+
+### Authentication Testing
+
+```bash
+# Test without authentication (public access)
+curl http://localhost:3000/
+
+# Test with authentication (requires valid JWT)
+curl -H "Authorization: Bearer <jwt-token>" \
+     http://localhost:3000/
+
+# Rate limiting test
+for i in {1..150}; do curl http://localhost:3000/; done
 ```
 
-### Remove Todo
+### Docker Testing
 
+```bash
+# Test container health
+docker-compose ps
+
+# Verify DynamoDB connectivity
+curl http://localhost:8001  # DynamoDB Admin UI
+
+# Container resource usage
+docker stats
 ```
-curl --request DELETE \
-  --url http://localhost:3000/{id}
+
+## API Endpoints
+
+| Method   | Endpoint           | Description          | Auth Required |
+| -------- | ------------------ | -------------------- | ------------- |
+| `GET`    | `/health`          | Basic health check   | No            |
+| `GET`    | `/health/detailed` | Detailed system info | No            |
+| `GET`    | `/`                | List user's todos    | Optional\*    |
+| `POST`   | `/`                | Create new todo      | Optional\*    |
+| `DELETE` | `/:id`             | Delete todo by ID    | Optional\*    |
+
+_\* Authentication is optional but when provided, data is user-specific_
+
+## Configuration
+
+### Rate Limiting
+
+```typescript
+// Environment-based defaults
+RATE_LIMIT_MAX = 100; // Global requests per minute
+RATE_LIMIT_AUTH_MAX = 10; // Auth requests per minute
+RATE_LIMIT_HEADERS_ENABLED = true; // Include rate limit headers
 ```
 
-## Error Handling
+### Database Configuration
 
-If an unexpected error occurs, it will be logged to the console.
-During normal operations, no errors will be logged.
+```typescript
+// DynamoDB settings
+DYNAMODB_TABLE_NAME=todo-app-{env}-todos
+AWS_REGION=ap-southeast-2
 
-To test this, as special HTML header has been added to trigger an exception.
-
+// Local development
+DYNAMODB_ENDPOINT=http://localhost:8000
 ```
-curl --request GET \
-  --url http://localhost:3000/ \
-  --header 'content-type: application/json' \
-  --header 'x-detonator: armed'
+
+## Monitoring
+
+### Health Endpoints
+
+- **Basic Health**: `GET /health` - Quick status check
+- **Detailed Health**: `GET /health/detailed` - Memory usage, configuration, dependencies
+
+### Logging
+
+```bash
+# View application logs
+docker-compose logs -f todo-api
+
+# Monitor health status
+watch -n 5 'curl -s http://localhost:3000/health | jq'
 ```
+
+## Development
+
+### Code Quality
+
+```bash
+# Format code
+npm run format
+
+# Lint and fix issues
+npm run lint
+
+# Pre-commit hooks (automatic)
+git commit -m "feat: add new feature"
+```
+
+### Database Schema
+
+```typescript
+// DynamoDB Item Structure
+{
+  "PK": "USER#cognito-user-id",     // Partition Key
+  "SK": "TODO#uuid-v4",             // Sort Key
+  "id": "uuid-v4",                  // Todo ID
+  "summary": "Buy groceries",       // Todo text
+  "done": false,                    // Completion status
+  "createdAt": "2024-01-15T10:30:00Z",
+  "updatedAt": "2024-01-15T10:30:00Z"
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**DynamoDB Connection Failed**:
+
+```bash
+# Check DynamoDB Local is running
+docker-compose ps dynamodb-local
+
+# Restart DynamoDB service
+docker-compose restart dynamodb-local
+```
+
+**Authentication Errors**:
+
+```bash
+# Verify Cognito configuration
+echo $COGNITO_USER_POOL_ID
+echo $COGNITO_CLIENT_ID
+
+# Check JWT token validity
+npm run demo:jwt-verification
+```
+
+**Rate Limiting Issues**:
+
+```bash
+# Check rate limit configuration
+curl -H "X-Forwarded-For: test-ip" \
+     -w "%{http_code}\n" \
+     http://localhost:3000/
+```
+
+## Documentation
+
+- [Docker Setup Guide](./README-Docker.md)
+- [JWT Verification Guide](./README-JWT-Verification.md)
+- [Rate Limiting Configuration](../docs/rate-limiting-configuration.md)
+- [Monitoring Setup](../docs/monitoring-quick-setup.md)
+
+# Backend API Configuration
+
+| Variable                     | Description                   | Default                  | Required |
+| ---------------------------- | ----------------------------- | ------------------------ | -------- |
+| `NODE_ENV`                   | Environment mode              | `development`            | No       |
+| `PORT`                       | Server port                   | `3000`                   | No       |
+| `AWS_REGION`                 | AWS region                    | `ap-southeast-2`         | Yes      |
+| `DYNAMODB_TABLE_NAME`        | DynamoDB table name           | -                        | Yes      |
+| `DYNAMODB_ENDPOINT`          | DynamoDB endpoint (for local) | -                        | No       |
+| `COGNITO_USER_POOL_ID`       | Cognito User Pool ID          | -                        | Yes\*    |
+| `COGNITO_CLIENT_ID`          | Cognito Client ID             | -                        | Yes\*    |
+| `RATE_LIMIT_MAX`             | Global requests per minute    | `50` (dev), `100` (prod) | No       |
+| `RATE_LIMIT_AUTH_MAX`        | Auth requests per minute      | `5` (dev), `10` (prod)   | No       |
+| `RATE_LIMIT_HEADERS_ENABLED` | Include rate limit headers    | `true`                   | No       |
+
+\*Required for authentication features
+
+### Environment-Specific Rate Limits
+
+| Environment | Global Limit | Auth Limit | Purpose             |
+| ----------- | ------------ | ---------- | ------------------- |
+| Development | 50/min       | 5/min      | Local development   |
+| Test        | 1000/min     | 100/min    | Load testing        |
+| Production  | 100/min      | 10/min     | Production workload |

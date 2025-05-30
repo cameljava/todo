@@ -1,0 +1,186 @@
+rules:
+  # Custom rules for Todo Application Security
+
+  # Hardcoded credentials detection
+  - id: hardcoded-aws-credentials
+    pattern-either:
+      - pattern: |
+          const $VAR = "AKIA..."
+      - pattern: |
+          $VAR = "AKIA..."
+      - pattern: |
+          AWS_ACCESS_KEY_ID = "$VALUE"
+      - pattern: |
+          AWS_SECRET_ACCESS_KEY = "$VALUE"
+    message: 'Hardcoded AWS credentials detected. Use environment variables or AWS IAM roles instead.'
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  - id: hardcoded-database-credentials
+    pattern-either:
+      - pattern: |
+          password: "$PASSWORD"
+      - pattern: |
+          passwd: "$PASSWORD"
+      - pattern: |
+          pwd: "$PASSWORD"
+    message: 'Hardcoded database password detected. Use environment variables.'
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  # JWT security issues
+  - id: jwt-no-verification
+    pattern: |
+      jwt.decode($TOKEN, ..., {verify: false})
+    message: 'JWT verification disabled. This allows unsigned tokens to be accepted.'
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  - id: weak-jwt-secret
+    pattern-either:
+      - pattern: |
+          jwt.sign($PAYLOAD, "secret", ...)
+      - pattern: |
+          jwt.sign($PAYLOAD, "12345", ...)
+      - pattern: |
+          jwt.sign($PAYLOAD, "password", ...)
+    message: 'Weak JWT secret detected. Use a strong, randomly generated secret.'
+    severity: WARNING
+    languages: [javascript, typescript]
+
+  # DynamoDB security
+  - id: dynamodb-table-scan
+    pattern: |
+      $CLIENT.scan(...)
+    message: 'DynamoDB scan operation detected. Consider using query instead for better performance and security.'
+    severity: INFO
+    languages: [javascript, typescript]
+
+  # CORS security
+  - id: cors-wildcard-origin
+    pattern-either:
+      - pattern: |
+          origin: "*"
+      - pattern: |
+          origin: true
+    message: 'CORS configured with wildcard origin. Specify allowed origins explicitly.'
+    severity: WARNING
+    languages: [javascript, typescript]
+
+  # XSS prevention
+  - id: react-dangerously-set-inner-html
+    pattern: |
+      dangerouslySetInnerHTML={{__html: $VAR}}
+    message: 'Potential XSS vulnerability. Sanitize HTML content before rendering.'
+    severity: WARNING
+    languages: [javascript, typescript, jsx, tsx]
+
+  # Insecure random number generation
+  - id: weak-random
+    pattern: |
+      Math.random()
+    message: 'Math.random() is not cryptographically secure. Use crypto.randomBytes() for security-sensitive operations.'
+    severity: INFO
+    languages: [javascript, typescript]
+
+  # SQL injection (even though we use DynamoDB)
+  - id: sql-injection-risk
+    pattern-either:
+      - pattern: |
+          $QUERY = "SELECT * FROM " + $VAR
+      - pattern: |
+          $QUERY = `SELECT * FROM ${$VAR}`
+    message: 'Potential SQL injection vulnerability. Use parameterized queries.'
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  # Command injection
+  - id: command-injection
+    pattern-either:
+      - pattern: |
+          exec($CMD + $VAR)
+      - pattern: |
+          spawn($CMD, [$VAR])
+    message: 'Potential command injection vulnerability. Validate and sanitize input.'
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  # Insecure HTTP
+  - id: insecure-http-request
+    pattern-either:
+      - pattern: |
+          http.request("http://...")
+      - pattern: |
+          fetch("http://...")
+    message: 'Insecure HTTP request detected. Use HTTPS for secure communication.'
+    severity: WARNING
+    languages: [javascript, typescript]
+
+  # Environment variable exposure
+  - id: env-var-exposure
+    pattern-either:
+      - pattern: |
+          console.log(process.env)
+      - pattern: |
+          JSON.stringify(process.env)
+    message: 'Environment variables may contain sensitive data. Avoid logging them.'
+    severity: WARNING
+    languages: [javascript, typescript]
+
+  # Prototype pollution
+  - id: prototype-pollution
+    pattern-either:
+      - pattern: |
+          $OBJ["__proto__"] = $VAL
+      - pattern: |
+          $OBJ.constructor.prototype = $VAL
+    message: 'Potential prototype pollution vulnerability.'
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  # TODO Application specific rules
+  - id: todo-unauthorized-access
+    pattern: |
+      todos.filter(todo => todo.userId !== $USER_ID)
+    message: 'Potential data leak. Ensure users can only access their own todos.'
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  # Fastify specific security
+  - id: fastify-no-rate-limiting
+    pattern: |
+      fastify.register(require('@fastify/rate-limit'), {max: $MAX})
+    message: 'Rate limiting configuration found. Ensure max value is appropriate.'
+    severity: INFO
+    languages: [javascript, typescript]
+
+  # React specific security
+  - id: react-href-javascript
+    pattern: |
+      href="javascript:..."
+    message: 'JavaScript URLs in href attributes can lead to XSS vulnerabilities.'
+    severity: ERROR
+    languages: [jsx, tsx]
+
+  # AWS SDK security
+  - id: aws-sdk-no-region
+    pattern: |
+      new AWS.$SERVICE()
+    message: 'AWS SDK service initialized without explicit region. Specify region for security and performance.'
+    severity: INFO
+    languages: [javascript, typescript]
+
+# Rule paths to include
+paths:
+  include:
+    - 'backend/src/**'
+    - 'frontend/src/**'
+    - 'infrastructure/lib/**'
+  exclude:
+    - 'node_modules/**'
+    - 'dist/**'
+    - 'build/**'
+    - '*.test.js'
+    - '*.test.ts'
+    - '*.spec.js'
+    - '*.spec.ts'

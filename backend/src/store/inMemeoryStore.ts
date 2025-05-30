@@ -1,13 +1,19 @@
-import type { TodoList, TodoStore } from '../app.js';
+import type { Todo, TodoStore } from '../app.js';
 
-export function createInMemoryStore(todos?: TodoList): TodoStore {
+export function createInMemoryStore(todos?: Todo[]): TodoStore {
   const map = new Map(todos?.map((todo) => [todo.id, todo]));
 
   return {
-    delete: (id: string) => map.delete(id),
-    get: (id: string) => map.get(id),
-    set: (id: string, todo) => map.set(id, todo),
-    list() {
+    async delete(id: string, _userId?: string): Promise<void> {
+      map.delete(id);
+    },
+    async get(id: string, _userId?: string): Promise<Todo | undefined> {
+      return map.get(id);
+    },
+    async set(id: string, todo: Todo, _userId?: string): Promise<void> {
+      map.set(id, todo);
+    },
+    async list(_userId?: string): Promise<Todo[]> {
       return Array.from(map.values());
     },
   };

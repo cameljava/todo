@@ -1,0 +1,398 @@
+image: node:22-alpine
+
+definitions:
+  services:
+    docker:
+      memory: 2048
+
+  steps:
+    - step: &dependency-check
+        name: Dependency Security & Update Check
+        image: node:22-alpine
+        caches:
+          - node
+        script:
+          # Install dependency checking tools
+          - npm install -g npm-check-updates npm-audit-ci-wrapper audit-ci
+
+          # Check for outdated dependencies in each workspace
+          - echo "🔍 Checking for outdated dependencies..."
+          - cd backend && ncu --errorLevel 2 --reject @aws-sdk/client-cognito-identity-provider,@aws-sdk/client-dynamodb,@aws-sdk/lib-dynamodb || echo "Backend dependencies checked"
+          - cd ../frontend && ncu --errorLevel 2 || echo "Frontend dependencies checked"
+          - cd ../infrastructure && ncu --errorLevel 2 || echo "Infrastructure dependencies checked"
+
+          # Security vulnerability scan
+          - echo "🔒 Running dependency vulnerability scan..."
+          - cd ../backend && npm audit --audit-level=moderate
+          - cd ../frontend && npm audit --audit-level=moderate
+          - cd ../infrastructure && npm audit --audit-level=moderate
+
+          # Generate dependency report
+          - |
+            cat > dependency-report.md << 'EOF'
+            # Dependency Update Report
+
+            ## Build: $BITBUCKET_BUILD_NUMBER
+            ## Branch: $BITBUCKET_BRANCH
+            ## Commit: $BITBUCKET_COMMIT
+
+            ### Security Status:
+            - ✅ Vulnerability scan completed
+            - ✅ Dependency freshness checked
+
+            ### Automated Actions:
+            - Renovate Bot will create PRs for outdated dependencies
+            - Security vulnerabilities are flagged for immediate attention
+            - Major updates require manual review via CODEOWNERS
+
+            ### Next Steps:
+            - Review any security vulnerabilities immediately
+            - Check Renovate Bot PRs for dependency updates
+            - Monitor the Dependency Dashboard for planned updates
+            EOF
+          - cat dependency-report.md
+        artifacts:
+          - dependency-report.md
+
+    - step: &security-code-scan
+        name: Code Security Scan
+        image: node:22-alpine
+        caches:
+          - node
+        script:
+          # Install security scanning tools
+          - npm install -g npm-audit-ci-wrapper audit-ci snyk
+          # Run npm audit for dependency vulnerabilities
+          - echo "Running dependency vulnerability scan..."
+          - cd backend && npm audit --audit-level=high
+          - cd ../frontend && npm audit --audit-level=high
+          # Run Snyk security scan if token is available
+          - |
+            if [ -n "$SNYK_TOKEN" ]; then
+              echo "Running Snyk security scan..."
+              cd backend && snyk auth $SNYK_TOKEN && snyk test --severity-threshold=high
+              cd ../frontend && snyk test --severity-threshold=high
+            else
+              echo "SNYK_TOKEN not set, skipping Snyk scan"
+            fi
+        artifacts:
+          - '*.sarif'
+
+    - step: &renovate-pr-validation
+        name: Renovate PR Validation
+        image: node:22-alpine
+        caches:
+          - node
+        condition:
+          changesets:
+            includePaths:
+              - 'package*.json'
+              - '*/package*.json'
+        script:
+          - echo "🤖 Validating Renovate Bot dependency update..."
+          # Verify this is a Renovate PR
+          - |
+            if [[ "$BITBUCKET_PR_TITLE" == *"chore(deps)"* ]] || [[ "$BITBUCKET_BRANCH" == renovate/* ]]; then
+              echo "✅ Detected Renovate Bot dependency update"
+              echo "🔍 Running enhanced validation for dependency changes..."
+              
+              # Install and run dependency validation
+              - cd backend && npm ci && npm run build && npm run test
+              - cd ../frontend && npm ci && npm run build && npm run lint
+              - cd ../infrastructure && npm ci && npm run build
+              
+              echo "✅ All dependency updates validated successfully"
+            else
+              echo "ℹ️ Not a Renovate PR, skipping enhanced dependency validation"
+            fi
+
+    - step: &semgrep-sast-scan
+        name: SAST Scan with Semgrep
+        image: returntocorp/semgrep:latest
+        script:
+          # Run static analysis security testing
+          - echo "Running SAST scan with Semgrep..."
+          - semgrep --config=auto --json --output=semgrep-results.json .
+          - semgrep --config=auto --sarif --output=semgrep-results.sarif .
+          # Display summary of findings
+          - semgrep --config=auto --text . || true
+        artifacts:
+          - semgrep-results.json
+          - semgrep-results.sarif
+
+    - step: &build-and-test-backend
+        name: Build and Test Backend
+        image: node:22-alpine
+        caches:
+          - node
+        script:
+          - cd backend
+          - npm ci
+          - npm run build
+          - npm run test
+          - npm run lint
+        artifacts:
+          - backend/dist/**
+
+    - step: &build-and-test-frontend
+        name: Build and Test Frontend
+        image: node:22-alpine
+        caches:
+          - node
+        script:
+          - cd frontend
+          - npm ci
+          - npm run lint
+          # Create environment file for build
+          - |
+            cat > .env.production << EOF
+            VITE_COGNITO_USER_POOL_ID=$COGNITO_USER_POOL_ID
+            VITE_COGNITO_CLIENT_ID=$COGNITO_CLIENT_ID
+            VITE_COGNITO_DOMAIN=$COGNITO_DOMAIN
+            VITE_REDIRECT_SIGN_IN=$FRONTEND_URL
+            VITE_REDIRECT_SIGN_OUT=$FRONTEND_URL
+            VITE_API_URL=$BACKEND_API_URL
+            EOF
+          - npm run build
+        artifacts:
+          - frontend/dist/**
+
+    - step: &build-docker-image
+        name: Build Docker Image
+        image: atlassian/default-image:4
+        services:
+          - docker
+        caches:
+          - docker
+        script:
+          - cd backend
+          - apk add --no-cache aws-cli
+          - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+          - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+          - aws configure set default.region $AWS_DEFAULT_REGION
+          - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URI
+          - docker build -t $ECR_REPOSITORY_URI:$BITBUCKET_COMMIT .
+          - docker tag $ECR_REPOSITORY_URI:$BITBUCKET_COMMIT $ECR_REPOSITORY_URI:latest
+          - docker push $ECR_REPOSITORY_URI:$BITBUCKET_COMMIT
+          - docker push $ECR_REPOSITORY_URI:latest
+          - echo "Image pushed to ECR"
+
+    - step: &docker-security-scan
+        name: Docker Image Security Scan
+        image: atlassian/default-image:4
+        services:
+          - docker
+        script:
+          - apk add --no-cache curl
+          # Install Trivy scanner
+          - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+          # Install Grype scanner
+          - curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+          # Install Docker Scout CLI
+          - curl -fsSL https://raw.githubusercontent.com/docker/scout-cli/main/install.sh | sh
+          - cd backend
+          # Scan with Trivy
+          - echo "Running Trivy vulnerability scan..."
+          - trivy image --format json --output trivy-results.json $ECR_REPOSITORY_URI:$BITBUCKET_COMMIT || true
+          - trivy image --format sarif --output trivy-results.sarif $ECR_REPOSITORY_URI:$BITBUCKET_COMMIT || true
+          - trivy image --severity HIGH,CRITICAL $ECR_REPOSITORY_URI:$BITBUCKET_COMMIT || true
+          # Scan with Grype
+          - echo "Running Grype vulnerability scan..."
+          - grype $ECR_REPOSITORY_URI:$BITBUCKET_COMMIT -o json > grype-results.json || true
+          - grype $ECR_REPOSITORY_URI:$BITBUCKET_COMMIT -o sarif > grype-results.sarif || true
+          - grype $ECR_REPOSITORY_URI:$BITBUCKET_COMMIT || true
+          # Docker Scout scan (if available)
+          - |
+            if [ -n "$DOCKER_SCOUT_HUB_TOKEN" ]; then
+              echo "Running Docker Scout scan..."
+              echo $DOCKER_SCOUT_HUB_TOKEN | docker login --username $DOCKER_SCOUT_HUB_USER --password-stdin
+              docker scout cves $ECR_REPOSITORY_URI:$BITBUCKET_COMMIT --format sarif --output scout-results.sarif || true
+              docker scout cves $ECR_REPOSITORY_URI:$BITBUCKET_COMMIT || true
+            else
+              echo "Docker Scout credentials not set, skipping Docker Scout scan"
+            fi
+        artifacts:
+          - backend/trivy-results.json
+          - backend/trivy-results.sarif
+          - backend/grype-results.json
+          - backend/grype-results.sarif
+          - backend/scout-results.sarif
+
+    - step: &security-report-aggregation
+        name: Security Report Aggregation
+        image: node:22-alpine
+        script:
+          - echo "Aggregating security scan results..."
+          - |
+            cat > security-summary.md << 'EOF'
+            # Security Scan Summary
+
+            ## Build: $BITBUCKET_BUILD_NUMBER
+            ## Commit: $BITBUCKET_COMMIT
+            ## Branch: $BITBUCKET_BRANCH
+
+            ### Scans Performed:
+            - ✅ Dependency Vulnerability Scan (npm audit)
+            - ✅ Static Application Security Testing (Semgrep)
+            - ✅ Docker Image Vulnerability Scan (Trivy, Grype)
+            - ✅ Code Quality and Security Analysis
+
+            ### Results Location:
+            - Semgrep SARIF: semgrep-results.sarif
+            - Trivy Results: backend/trivy-results.json
+            - Grype Results: backend/grype-results.json
+
+            ### Next Steps:
+            Review the SARIF files in your security dashboard or upload to GitHub Security tab.
+            EOF
+          - cat security-summary.md
+          - echo "Security scanning completed. Check artifacts for detailed results."
+        artifacts:
+          - security-summary.md
+
+    - step: &deploy-infrastructure
+        name: Deploy Infrastructure
+        image: node:22-alpine
+        caches:
+          - node
+        script:
+          - cd infrastructure
+          - npm ci
+          - npm run build
+          - apk add --no-cache aws-cli
+          - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+          - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+          - aws configure set default.region $AWS_DEFAULT_REGION
+          - npx cdk deploy --require-approval never --outputs-file outputs.json
+          - cat outputs.json
+          # Update Cognito callback URLs with CloudFront domain
+          - node scripts/update-cognito-urls.js
+        artifacts:
+          - infrastructure/outputs.json
+
+    - step: &deploy-frontend
+        name: Deploy Frontend to S3
+        image: atlassian/default-image:4
+        script:
+          - apk add --no-cache aws-cli
+          - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+          - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+          - aws configure set default.region $AWS_DEFAULT_REGION
+          # Sync frontend build to S3
+          - aws s3 sync frontend/dist/ s3://$FRONTEND_BUCKET_NAME --delete
+          # Invalidate CloudFront cache
+          - |
+            if [ -n "$CLOUDFRONT_DISTRIBUTION_ID" ]; then
+              echo "Invalidating CloudFront cache..."
+              aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/*"
+              echo "CloudFront invalidation created"
+            else
+              echo "CLOUDFRONT_DISTRIBUTION_ID not set, skipping cache invalidation"
+            fi
+          - echo "Frontend deployed successfully"
+
+    - step: &trigger-app-runner-deployment
+        name: Trigger App Runner Deployment
+        image: atlassian/default-image:4
+        script:
+          - apk add --no-cache aws-cli
+          - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+          - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+          - aws configure set default.region $AWS_DEFAULT_REGION
+          - |
+            if [ -n "$APP_RUNNER_SERVICE_ARN" ]; then
+              echo "Triggering App Runner deployment..."
+              aws apprunner start-deployment --service-arn $APP_RUNNER_SERVICE_ARN
+              echo "Deployment triggered successfully"
+            else
+              echo "APP_RUNNER_SERVICE_ARN not set, skipping manual deployment trigger"
+            fi
+
+pipelines:
+  default:
+    - step: *dependency-check
+    - step: *security-code-scan
+    - step: *semgrep-sast-scan
+    - step: *build-and-test-backend
+    - step: *build-and-test-frontend
+
+  branches:
+    develop:
+      - step: *dependency-check
+      - step: *security-code-scan
+      - step: *semgrep-sast-scan
+      - parallel:
+          - step: *build-and-test-backend
+          - step: *build-and-test-frontend
+      - step: *build-docker-image
+      - step: *docker-security-scan
+      - step: *security-report-aggregation
+      - step: *deploy-infrastructure
+      - parallel:
+          - step: *deploy-frontend
+          - step: *trigger-app-runner-deployment
+
+    main:
+      - step: *dependency-check
+      - step: *security-code-scan
+      - step: *semgrep-sast-scan
+      - parallel:
+          - step: *build-and-test-backend
+          - step: *build-and-test-frontend
+      - step: *build-docker-image
+      - step: *docker-security-scan
+      - step: *security-report-aggregation
+      - step: *deploy-infrastructure
+      - parallel:
+          - step: *deploy-frontend
+          - step: *trigger-app-runner-deployment
+
+  pull-requests:
+    'renovate/**':
+      # Special pipeline for Renovate Bot PRs
+      - step: *dependency-check
+      - step: *renovate-pr-validation
+      - step: *security-code-scan
+      - step: *semgrep-sast-scan
+      - parallel:
+          - step: *build-and-test-backend
+          - step: *build-and-test-frontend
+    '**':
+      # Regular PR pipeline
+      - step: *dependency-check
+      - step: *security-code-scan
+      - step: *semgrep-sast-scan
+      - parallel:
+          - step: *build-and-test-backend
+          - step: *build-and-test-frontend
+
+  custom:
+    dependency-update-check:
+      - step: *dependency-check
+      - step:
+          name: Generate Dependency Update Summary
+          image: node:22-alpine
+          script:
+            - echo "📊 Generating comprehensive dependency update summary..."
+            - npm install -g npm-check-updates
+            # Check all workspaces for updates
+            - cd backend && echo "## Backend Dependencies" && ncu
+            - cd ../frontend && echo "## Frontend Dependencies" && ncu
+            - cd ../infrastructure && echo "## Infrastructure Dependencies" && ncu
+            - echo "✅ Dependency check completed. Review output above for available updates."
+
+  tags:
+    'v*':
+      - step: *dependency-check
+      - step: *security-code-scan
+      - step: *semgrep-sast-scan
+      - parallel:
+          - step: *build-and-test-backend
+          - step: *build-and-test-frontend
+      - step: *build-docker-image
+      - step: *docker-security-scan
+      - step: *security-report-aggregation
+      - step: *deploy-infrastructure
+      - parallel:
+          - step: *deploy-frontend
+          - step: *trigger-app-runner-deployment
