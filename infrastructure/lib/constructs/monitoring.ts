@@ -428,7 +428,7 @@ exports.handler = async () => {
 };`);
 
     return new synthetics.Canary(this, 'HealthCheckCanary', {
-      canaryName: `${appName}-${environment}-health-check`,
+      canaryName: `${appName}-${environment}-hc`,
       schedule: synthetics.Schedule.rate(cdk.Duration.minutes(5)),
       test: synthetics.Test.custom({
         code: canaryCode,
