@@ -1,15 +1,19 @@
 # CDK asset staging directory
 .cdk.staging
 cdk.out
-cdk.context.json
+
+# CDK context (uncomment if you want to ignore context for solo projects)
+# cdk.context.json
 
 # Dependency directories
 node_modules/
 
 # Build outputs
-lib/
-*.js
-*.d.ts
+dist/
+
+# Test coverage
+coverage/
+.nyc_output
 
 # Logs
 *.log
@@ -23,17 +27,16 @@ pids
 *.seed
 *.pid.lock
 
-# Coverage directory used by tools like istanbul
-coverage/
-
-# nyc test coverage
-.nyc_output
-
 # Environment variables
 .env
 .env.local
 .env.production
 .env.staging
+.env.development
+
+# CDK deployment artifacts
+*.zip
+*.tar.gz
 
 # Editor directories and files
 .vscode/

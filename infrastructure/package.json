@@ -14,7 +14,8 @@
     "synth": "cdk synth",
     "diff": "cdk diff",
     "bootstrap": "cdk bootstrap",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "clean": "rm -rf dist node_modules cdk.out"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
