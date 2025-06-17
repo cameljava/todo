@@ -434,7 +434,7 @@ exports.handler = async () => {
         code: canaryCode,
         handler: 'index.handler',
       }),
-      runtime: synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_3_9,
+      runtime: synthetics.Runtime.SYNTHETICS_NODEJS_PUPPETEER_6_2,
       environmentVariables: {
         ENVIRONMENT: environment,
       },

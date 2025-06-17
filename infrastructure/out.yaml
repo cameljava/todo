@@ -1,0 +1,1056 @@
+
+> todo-app-infrastructure@1.0.0 synth
+> cdk synth
+
+Description: Todo App Infrastructure Stack for dev environment
+Resources:
+  TodoTable585F1D6B:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: userId
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+      TableName: todo-app-dev-todos
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: todo-app-dev/TodoTable/Resource
+  UserPool6BA7E5F2:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      AliasAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      EmailVerificationMessage: Your verification code is {####}
+      EmailVerificationSubject: Verify your email for Todo App
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: true
+      SmsVerificationMessage: The verification code to your new account is {####}
+      UserPoolName: todo-app-dev-users
+      UserPoolTags:
+        Application: todo-app
+        Environment: dev
+        ManagedBy: CDK
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+        EmailMessage: Your verification code is {####}
+        EmailSubject: Verify your email for Todo App
+        SmsMessage: The verification code to your new account is {####}
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: todo-app-dev/UserPool/Resource
+  UserPoolClient2F5918F7:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - openid
+        - email
+        - profile
+      CallbackURLs:
+        - http://localhost:5173/
+        - http://localhost:3000/
+      ClientName: todo-app-dev-client
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      GenerateSecret: false
+      LogoutURLs:
+        - http://localhost:5173/
+        - http://localhost:3000/
+      SupportedIdentityProviders:
+        - COGNITO
+      UserPoolId:
+        Ref: UserPool6BA7E5F2
+    Metadata:
+      aws:cdk:path: todo-app-dev/UserPoolClient/Resource
+  UserPoolDomain5479B217:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: todo-app-dev-auth-506158141683
+      UserPoolId:
+        Ref: UserPool6BA7E5F2
+    Metadata:
+      aws:cdk:path: todo-app-dev/UserPoolDomain/Resource
+  BackendRole78202DE5:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+                - lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      RoleName: todo-app-dev-backend-role
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+    Metadata:
+      aws:cdk:path: todo-app-dev/BackendRole/Resource
+  BackendRoleDefaultPolicy96F27249:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:ConditionCheckItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - TodoTable585F1D6B
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - TodoTable585F1D6B
+                        - Arn
+                    - /index/*
+          - Action:
+              - cognito-idp:AdminGetUser
+              - cognito-idp:GetUser
+              - cognito-idp:ListUsers
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - UserPool6BA7E5F2
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: BackendRoleDefaultPolicy96F27249
+      Roles:
+        - Ref: BackendRole78202DE5
+    Metadata:
+      aws:cdk:path: todo-app-dev/BackendRole/DefaultPolicy/Resource
+  BackendEcrRepository00C0B380:
+    Type: AWS::ECR::Repository
+    Properties:
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: '{"rules":[{"rulePriority":1,"description":"Keep last 10 images","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":10},"action":{"type":"expire"}}]}'
+      RepositoryName: todo-app-dev-backend-api
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: todo-app-dev/BackendEcrRepository/Resource
+  AppRunnerECRRole17B2A7F3:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: build.apprunner.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess
+      RoleName: todo-app-dev-apprunner-ecr-role
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+    Metadata:
+      aws:cdk:path: todo-app-dev/AppRunnerECRRole/Resource
+  AppRunnerServiceRole41659487:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: tasks.apprunner.amazonaws.com
+        Version: "2012-10-17"
+      RoleName: todo-app-dev-apprunner-service-role
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+    Metadata:
+      aws:cdk:path: todo-app-dev/AppRunnerServiceRole/Resource
+  AppRunnerServiceRoleDefaultPolicy8918F6D8:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:ConditionCheckItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - TodoTable585F1D6B
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - TodoTable585F1D6B
+                        - Arn
+                    - /index/*
+          - Action:
+              - cognito-idp:AdminGetUser
+              - cognito-idp:GetUser
+              - cognito-idp:ListUsers
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - UserPool6BA7E5F2
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: AppRunnerServiceRoleDefaultPolicy8918F6D8
+      Roles:
+        - Ref: AppRunnerServiceRole41659487
+    Metadata:
+      aws:cdk:path: todo-app-dev/AppRunnerServiceRole/DefaultPolicy/Resource
+  FrontendBucketEFE2E19C:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: todo-app-dev-frontend-506158141683
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: aws-cdk:auto-delete-objects
+          Value: "true"
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+      WebsiteConfiguration:
+        ErrorDocument: index.html
+        IndexDocument: index.html
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: todo-app-dev/FrontendBucket/Resource
+  FrontendBucketPolicy1DFF75D9:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: FrontendBucketEFE2E19C
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:DeleteObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:PutBucketPolicy
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::GetAtt:
+                  - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+                  - Arn
+            Resource:
+              - Fn::GetAtt:
+                  - FrontendBucketEFE2E19C
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - FrontendBucketEFE2E19C
+                        - Arn
+                    - /*
+          - Action:
+              - s3:GetBucket*
+              - s3:GetObject*
+              - s3:List*
+            Effect: Allow
+            Principal:
+              CanonicalUser:
+                Fn::GetAtt:
+                  - FrontendOAIF4D25B13
+                  - S3CanonicalUserId
+            Resource:
+              - Fn::GetAtt:
+                  - FrontendBucketEFE2E19C
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - FrontendBucketEFE2E19C
+                        - Arn
+                    - /*
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: todo-app-dev/FrontendBucket/Policy/Resource
+  FrontendBucketAutoDeleteObjectsCustomResourceDB860B32:
+    Type: Custom::S3AutoDeleteObjects
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F
+          - Arn
+      BucketName:
+        Ref: FrontendBucketEFE2E19C
+    DependsOn:
+      - FrontendBucketPolicy1DFF75D9
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: todo-app-dev/FrontendBucket/AutoDeleteObjectsCustomResource/Default
+  CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+      ManagedPolicyArns:
+        - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: todo-app-dev/Custom::S3AutoDeleteObjectsCustomResourceProvider/Role
+  CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-506158141683-ap-southeast-2
+        S3Key: faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6.zip
+      Timeout: 900
+      MemorySize: 128
+      Handler: index.handler
+      Role:
+        Fn::GetAtt:
+          - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+          - Arn
+      Runtime: nodejs22.x
+      Description:
+        Fn::Join:
+          - ""
+          - - "Lambda function for auto-deleting objects in "
+            - Ref: FrontendBucketEFE2E19C
+            - " S3 bucket."
+    DependsOn:
+      - CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092
+    Metadata:
+      aws:cdk:path: todo-app-dev/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler
+      aws:asset:path: asset.faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6
+      aws:asset:property: Code
+  FrontendOAIF4D25B13:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: OAI for todo-app-dev-frontend
+    Metadata:
+      aws:cdk:path: todo-app-dev/FrontendOAI/Resource
+  FrontendDistributionE6EAF405:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: todo-app-dev Frontend Distribution
+        CustomErrorResponses:
+          - ErrorCachingMinTTL: 300
+            ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCachingMinTTL: 300
+            ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          CachedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          Compress: true
+          TargetOriginId: todoappdevFrontendDistributionOrigin1FBBD146C
+          ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled: true
+        Origins:
+          - CustomOriginConfig:
+              OriginProtocolPolicy: http-only
+              OriginSSLProtocols:
+                - TLSv1.2
+            DomainName:
+              Fn::Select:
+                - 2
+                - Fn::Split:
+                    - /
+                    - Fn::GetAtt:
+                        - FrontendBucketEFE2E19C
+                        - WebsiteURL
+            Id: todoappdevFrontendDistributionOrigin1FBBD146C
+        PriceClass: PriceClass_100
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+    Metadata:
+      aws:cdk:path: todo-app-dev/FrontendDistribution/Resource
+  MonitoringAlertTopicB48B06C2:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: todo-app dev Alerts
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+      TopicName: todo-app-dev-alerts
+    Metadata:
+      aws:cdk:path: todo-app-dev/Monitoring/AlertTopic/Resource
+  MonitoringMonitoringDashboard7FF8E54D:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardBody:
+        Fn::Join:
+          - ""
+          - - '{"widgets":[{"type":"metric","width":12,"height":6,"x":0,"y":0,"properties":{"view":"timeSeries","title":"CloudFront - Requests & Errors","region":"'
+            - Ref: AWS::Region
+            - '","metrics":[["AWS/CloudFront","Requests","DistributionId","'
+            - Ref: FrontendDistributionE6EAF405
+            - '",{"stat":"Sum"}],["AWS/CloudFront","4xxErrorRate","DistributionId","'
+            - Ref: FrontendDistributionE6EAF405
+            - '",{"yAxis":"right"}],["AWS/CloudFront","5xxErrorRate","DistributionId","'
+            - Ref: FrontendDistributionE6EAF405
+            - '",{"yAxis":"right"}]],"yAxis":{}}},{"type":"metric","width":12,"height":6,"x":12,"y":0,"properties":{"view":"timeSeries","title":"CloudFront - Cache Performance","region":"'
+            - Ref: AWS::Region
+            - '","metrics":[["AWS/CloudFront","CacheHitRate","DistributionId","'
+            - Ref: FrontendDistributionE6EAF405
+            - '"],["AWS/CloudFront","OriginLatency","DistributionId","'
+            - Ref: FrontendDistributionE6EAF405
+            - '",{"yAxis":"right"}]],"yAxis":{}}},{"type":"metric","width":12,"height":6,"x":0,"y":6,"properties":{"view":"timeSeries","title":"DynamoDB - Operations","region":"'
+            - Ref: AWS::Region
+            - '","metrics":[["AWS/DynamoDB","ConsumedReadCapacityUnits","TableName","'
+            - Ref: TodoTable585F1D6B
+            - '",{"stat":"Sum"}],["AWS/DynamoDB","ConsumedWriteCapacityUnits","TableName","'
+            - Ref: TodoTable585F1D6B
+            - '",{"stat":"Sum"}],["AWS/DynamoDB","SuccessfulRequestLatency","Operation","Query","TableName","'
+            - Ref: TodoTable585F1D6B
+            - '",{"yAxis":"right"}],["AWS/DynamoDB","SuccessfulRequestLatency","Operation","PutItem","TableName","'
+            - Ref: TodoTable585F1D6B
+            - '",{"yAxis":"right"}]],"yAxis":{}}}]}'
+      DashboardName: todo-app-dev-monitoring
+    Metadata:
+      aws:cdk:path: todo-app-dev/Monitoring/MonitoringDashboard/Resource
+  MonitoringCloudFrontHighErrorRateAlarm427DF587:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - Ref: MonitoringAlertTopicB48B06C2
+      AlarmDescription: High 5xx error rate detected in CloudFront
+      AlarmName:
+        Fn::Join:
+          - ""
+          - - Ref: FrontendDistributionE6EAF405
+            - -high-5xx-error-rate
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: DistributionId
+          Value:
+            Ref: FrontendDistributionE6EAF405
+      EvaluationPeriods: 2
+      MetricName: 5xxErrorRate
+      Namespace: AWS/CloudFront
+      Period: 300
+      Statistic: Average
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+      Threshold: 5
+    Metadata:
+      aws:cdk:path: todo-app-dev/Monitoring/CloudFrontHighErrorRateAlarm/Resource
+  MonitoringDynamoReadThrottleAlarm0C3943C3:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - Ref: MonitoringAlertTopicB48B06C2
+      AlarmDescription: High read throttle events detected in DynamoDB table
+      AlarmName:
+        Fn::Join:
+          - ""
+          - - Ref: TodoTable585F1D6B
+            - -read-throttle
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: TableName
+          Value:
+            Ref: TodoTable585F1D6B
+      EvaluationPeriods: 2
+      MetricName: ReadThrottleEvents
+      Namespace: AWS/DynamoDB
+      Period: 300
+      Statistic: Sum
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+      Threshold: 5
+    Metadata:
+      aws:cdk:path: todo-app-dev/Monitoring/DynamoReadThrottleAlarm/Resource
+  MonitoringDynamoWriteThrottleAlarmFB2AF1E5:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - Ref: MonitoringAlertTopicB48B06C2
+      AlarmDescription: High write throttle events detected in DynamoDB table
+      AlarmName:
+        Fn::Join:
+          - ""
+          - - Ref: TodoTable585F1D6B
+            - -write-throttle
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: TableName
+          Value:
+            Ref: TodoTable585F1D6B
+      EvaluationPeriods: 2
+      MetricName: WriteThrottleEvents
+      Namespace: AWS/DynamoDB
+      Period: 300
+      Statistic: Sum
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+      Threshold: 5
+    Metadata:
+      aws:cdk:path: todo-app-dev/Monitoring/DynamoWriteThrottleAlarm/Resource
+  MonitoringDynamoHighLatencyAlarm64E91227:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - Ref: MonitoringAlertTopicB48B06C2
+      AlarmDescription: High latency detected in DynamoDB table queries
+      AlarmName:
+        Fn::Join:
+          - ""
+          - - Ref: TodoTable585F1D6B
+            - -high-latency
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: Operation
+          Value: Query
+        - Name: TableName
+          Value:
+            Ref: TodoTable585F1D6B
+      EvaluationPeriods: 3
+      MetricName: SuccessfulRequestLatency
+      Namespace: AWS/DynamoDB
+      Period: 300
+      Statistic: Average
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+      Threshold: 100
+    Metadata:
+      aws:cdk:path: todo-app-dev/Monitoring/DynamoHighLatencyAlarm/Resource
+  MonitoringHealthCheckCanaryArtifactsBucket6A7979E2:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      aws:cdk:path: todo-app-dev/Monitoring/HealthCheckCanary/ArtifactsBucket/Resource
+  MonitoringHealthCheckCanaryArtifactsBucketPolicyDDCF3FC8:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: MonitoringHealthCheckCanaryArtifactsBucket6A7979E2
+      PolicyDocument:
+        Statement:
+          - Action: s3:*
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+            Effect: Deny
+            Principal:
+              AWS: "*"
+            Resource:
+              - Fn::GetAtt:
+                  - MonitoringHealthCheckCanaryArtifactsBucket6A7979E2
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - MonitoringHealthCheckCanaryArtifactsBucket6A7979E2
+                        - Arn
+                    - /*
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: todo-app-dev/Monitoring/HealthCheckCanary/ArtifactsBucket/Policy/Resource
+  MonitoringHealthCheckCanaryServiceRoleD25187DB:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action: s3:ListAllMyBuckets
+                Effect: Allow
+                Resource: "*"
+              - Action: s3:GetBucketLocation
+                Effect: Allow
+                Resource:
+                  Fn::GetAtt:
+                    - MonitoringHealthCheckCanaryArtifactsBucket6A7979E2
+                    - Arn
+              - Action: s3:PutObject
+                Effect: Allow
+                Resource:
+                  Fn::Join:
+                    - ""
+                    - - Fn::GetAtt:
+                          - MonitoringHealthCheckCanaryArtifactsBucket6A7979E2
+                          - Arn
+                      - /*
+              - Action: cloudwatch:PutMetricData
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: CloudWatchSynthetics
+                Effect: Allow
+                Resource: "*"
+              - Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Effect: Allow
+                Resource:
+                  Fn::Join:
+                    - ""
+                    - - "arn:"
+                      - Ref: AWS::Partition
+                      - :logs:ap-southeast-2:506158141683:log-group:/aws/lambda/cwsyn-*
+            Version: "2012-10-17"
+          PolicyName: canaryPolicy
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+    Metadata:
+      aws:cdk:path: todo-app-dev/Monitoring/HealthCheckCanary/ServiceRole/Resource
+  MonitoringHealthCheckCanaryDE9F1578:
+    Type: AWS::Synthetics::Canary
+    Properties:
+      ArtifactS3Location:
+        Fn::Join:
+          - ""
+          - - s3://
+            - Ref: MonitoringHealthCheckCanaryArtifactsBucket6A7979E2
+      Code:
+        Handler: index.handler
+        Script:
+          Fn::Join:
+            - ""
+            - - |-
+                
+                const synthetics = require('Synthetics');
+                const log = require('SyntheticsLogger');
+
+                const checkHealthEndpoint = async function () {
+                    const config = synthetics.getConfiguration();
+                    const domainName = '
+              - Fn::GetAtt:
+                  - FrontendDistributionE6EAF405
+                  - DomainName
+              - |-
+                ';
+                    
+                    // Check frontend is accessible
+                    const frontendUrl = 'https://' + domainName;
+                    log.info('Checking frontend availability: ' + frontendUrl);
+                    const frontendPage = await synthetics.executeStep('checkFrontend', async function () {
+                        return await synthetics.executeHttpStep({
+                            requestOptions: {
+                                url: frontendUrl,
+                                method: 'GET',
+                            },
+                            responseValidation: {
+                                expectedStatusCode: 200,
+                            }
+                        });
+                    });
+                    
+                    // Check backend health endpoint (assuming it's accessible through CloudFront)
+                    const healthUrl = frontendUrl + '/api/health';
+                    log.info('Checking backend health: ' + healthUrl);
+                    const healthResponse = await synthetics.executeStep('checkBackendHealth', async function () {
+                        return await synthetics.executeHttpStep({
+                            requestOptions: {
+                                url: healthUrl,
+                                method: 'GET',
+                            },
+                            responseValidation: {
+                                expectedStatusCode: 200,
+                            }
+                        });
+                    });
+                    
+                    // Validate health response contains expected fields
+                    const healthData = JSON.parse(healthResponse.responseBody);
+                    if (!healthData.status || !healthData.timestamp) {
+                        throw new Error('Health check response missing required fields');
+                    }
+                    
+                    if (healthData.status !== 'ok' && healthData.status !== 'degraded') {
+                        throw new Error('Health check failed with status: ' + healthData.status);
+                    }
+                    
+                    log.info('All health checks passed');
+                };
+
+                exports.handler = async () => {
+                    return await synthetics.executeStep('healthCheck', checkHealthEndpoint);
+                };
+      ExecutionRoleArn:
+        Fn::GetAtt:
+          - MonitoringHealthCheckCanaryServiceRoleD25187DB
+          - Arn
+      FailureRetentionPeriod: 30
+      Name: todo-app-dev-hc
+      RunConfig:
+        EnvironmentVariables:
+          ENVIRONMENT: dev
+      RuntimeVersion: syn-nodejs-puppeteer-6.2
+      Schedule:
+        DurationInSeconds: "0"
+        Expression: rate(5 minutes)
+      StartCanaryAfterCreation: true
+      SuccessRetentionPeriod: 7
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+    Metadata:
+      aws:cdk:path: todo-app-dev/Monitoring/HealthCheckCanary/Resource
+  CloudFront5xxErrorAlarm9756004D:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Alarm when CloudFront has a high 5xx error rate
+      AlarmName: todo-app-dev-CloudFront-5xx-Errors
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: DistributionId
+          Value:
+            Ref: FrontendDistributionE6EAF405
+        - Name: Region
+          Value: Global
+      EvaluationPeriods: 1
+      MetricName: 5xxErrorRate
+      Namespace: AWS/CloudFront
+      Period: 300
+      Statistic: Average
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+      Threshold: 2
+      TreatMissingData: notBreaching
+    Metadata:
+      aws:cdk:path: todo-app-dev/CloudFront5xxErrorAlarm/Resource
+  CloudFront4xxErrorAlarm68CEBA75:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Alarm when CloudFront has a high 4xx error rate
+      AlarmName: todo-app-dev-CloudFront-4xx-Errors
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: DistributionId
+          Value:
+            Ref: FrontendDistributionE6EAF405
+        - Name: Region
+          Value: Global
+      EvaluationPeriods: 1
+      MetricName: 4xxErrorRate
+      Namespace: AWS/CloudFront
+      Period: 300
+      Statistic: Average
+      Tags:
+        - Key: Application
+          Value: todo-app
+        - Key: Environment
+          Value: dev
+        - Key: ManagedBy
+          Value: CDK
+      Threshold: 5
+      TreatMissingData: notBreaching
+    Metadata:
+      aws:cdk:path: todo-app-dev/CloudFront4xxErrorAlarm/Resource
+  CDKMetadata:
+    Type: AWS::CDK::Metadata
+    Properties:
+      Analytics: v2:deflate64:H4sIAAAAAAAA/22Sz27CMAzGn2X3kDG2F4CiSTuBCjtPaRKKoY1R7IBQlHefkvKnB07+ffbnOI4yk7PpVH68qQtNtDlOOmhk3LDSR6Eu9BfN1akeTSPjVjWdFdXOFUhCY+uAUcZfsn6N2OXag+9QdWAdj0u3zF0usVfgxoYhkwSoXsYah6ElrrEDfc1yoCSs9jLW9oQEjL6UnioJ+pRxEfTRlhvcaAjPs8Y6Cd1hMDuPjmVceWjBzbW2RD/GOgYuHVX2fGfPS8cSiD00gQHLYmOdBDmScYsn0OUxM9ymXhTrvYxLRfsGlTel9yHmnfJ9ThVIgq6O95ZBk4yVcmrYfqCURG0Jg9dWVIEY+6fML/SytPZ4BmP9QpEVcyLLG1YtuDb3rAKfAifh0Fh5oPfz7Evmf3MggIkPjqG3sh7iP81C3G1UAgAA
+    Metadata:
+      aws:cdk:path: todo-app-dev/CDKMetadata/Default
+Outputs:
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value:
+      Ref: UserPool6BA7E5F2
+    Export:
+      Name: todo-app-dev-UserPoolId
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value:
+      Ref: UserPoolClient2F5918F7
+    Export:
+      Name: todo-app-dev-UserPoolClientId
+  UserPoolDomainUrl:
+    Description: Cognito User Pool Domain URL
+    Value:
+      Fn::Join:
+        - ""
+        - - https://
+          - Ref: UserPoolDomain5479B217
+          - .auth.ap-southeast-2.amazoncognito.com
+    Export:
+      Name: todo-app-dev-UserPoolDomain
+  TodoTableName:
+    Description: DynamoDB Table Name
+    Value:
+      Ref: TodoTable585F1D6B
+    Export:
+      Name: todo-app-dev-TodoTableName
+  TodoTableArn:
+    Description: DynamoDB Table ARN
+    Value:
+      Fn::GetAtt:
+        - TodoTable585F1D6B
+        - Arn
+    Export:
+      Name: todo-app-dev-TodoTableArn
+  BackendRoleArn:
+    Description: Backend IAM Role ARN
+    Value:
+      Fn::GetAtt:
+        - BackendRole78202DE5
+        - Arn
+    Export:
+      Name: todo-app-dev-BackendRoleArn
+  Region:
+    Description: AWS Region
+    Value: ap-southeast-2
+    Export:
+      Name: todo-app-dev-Region
+  EcrRepositoryUri:
+    Description: ECR Repository URI
+    Value:
+      Fn::Join:
+        - ""
+        - - Fn::Select:
+              - 4
+              - Fn::Split:
+                  - ":"
+                  - Fn::GetAtt:
+                      - BackendEcrRepository00C0B380
+                      - Arn
+          - .dkr.ecr.
+          - Fn::Select:
+              - 3
+              - Fn::Split:
+                  - ":"
+                  - Fn::GetAtt:
+                      - BackendEcrRepository00C0B380
+                      - Arn
+          - "."
+          - Ref: AWS::URLSuffix
+          - /
+          - Ref: BackendEcrRepository00C0B380
+    Export:
+      Name: todo-app-dev-EcrRepositoryUri
+  EcrRepositoryName:
+    Description: ECR Repository Name
+    Value:
+      Ref: BackendEcrRepository00C0B380
+    Export:
+      Name: todo-app-dev-EcrRepositoryName
+  FrontendBucketName:
+    Description: Frontend S3 Bucket Name
+    Value:
+      Ref: FrontendBucketEFE2E19C
+    Export:
+      Name: todo-app-dev-FrontendBucketName
+  FrontendBucketArn:
+    Description: Frontend S3 Bucket ARN
+    Value:
+      Fn::GetAtt:
+        - FrontendBucketEFE2E19C
+        - Arn
+    Export:
+      Name: todo-app-dev-FrontendBucketArn
+  CloudFrontDistributionId:
+    Description: CloudFront Distribution ID
+    Value:
+      Ref: FrontendDistributionE6EAF405
+    Export:
+      Name: todo-app-dev-CloudFrontDistributionId
+  CloudFrontDistributionDomainName:
+    Description: CloudFront Distribution Domain Name
+    Value:
+      Fn::GetAtt:
+        - FrontendDistributionE6EAF405
+        - DomainName
+    Export:
+      Name: todo-app-dev-CloudFrontDomainName
+  FrontendUrl:
+    Description: Frontend Application URL
+    Value:
+      Fn::Join:
+        - ""
+        - - https://
+          - Fn::GetAtt:
+              - FrontendDistributionE6EAF405
+              - DomainName
+    Export:
+      Name: todo-app-dev-FrontendUrl
+  MonitoringDashboardUrl:
+    Description: CloudWatch Monitoring Dashboard URL
+    Value: https://ap-southeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-southeast-2#dashboards:name=todo-app-dev-monitoring
+    Export:
+      Name: todo-app-dev-MonitoringDashboard
+Parameters:
+  BootstrapVersion:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cdk-bootstrap/hnb659fds/version
+    Description: Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]
+
