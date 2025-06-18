@@ -1,5 +1,5 @@
 import React, { useEffect, useState, ReactNode } from 'react';
-import { getCurrentUser, signOut, fetchAuthSession } from 'aws-amplify/auth';
+import { getCurrentUser, signOut, fetchAuthSession, fetchUserAttributes } from 'aws-amplify/auth';
 import type { User, AuthContextType } from '../types/auth';
 import { AuthContext } from './AuthContextProvider';
 
@@ -11,9 +11,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const checkAuthState = async () => {
     try {
       const currentUser = await getCurrentUser();
+      const attributes = await fetchUserAttributes();
       setUser({
         username: currentUser.username,
-        email: currentUser.signInDetails?.loginId,
+        email: attributes.email,
         userId: currentUser.userId,
       });
       setIsAuthenticated(true);

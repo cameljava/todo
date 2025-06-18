@@ -27,7 +27,7 @@ const AuthenticatedApp: React.FC = () => {
       >
         <h1>Todo App</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span>Welcome, {user?.username || user?.email}!</span>
+          <span>Welcome, {user?.email || user?.username}!</span>
           <button
             onClick={signOut}
             style={{

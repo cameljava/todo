@@ -14,7 +14,7 @@ const awsConfig: ResourcesConfig = {
           responseType: 'code',
         },
         email: true,
-        username: true,
+        username: false,
       },
     },
   },
