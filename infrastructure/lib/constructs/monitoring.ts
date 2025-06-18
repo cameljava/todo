@@ -71,7 +71,8 @@ export class MonitoringConstruct extends Construct {
     this.createAlarms(appRunnerServiceArn, cloudFrontDistribution, dynamoTableName);
 
     // Create synthetic monitoring canary
-    if (cloudFrontDistribution) {
+    // Only enable canary for non-dev environments to save cost
+    if (cloudFrontDistribution && environment !== 'dev') {
       this.healthCheckCanary = this.createHealthCheckCanary(
         cloudFrontDistribution,
         appName,

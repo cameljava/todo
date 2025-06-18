@@ -173,15 +173,6 @@ _\* Authentication is optional but when provided, data is user-specific_
 
 ## Configuration
 
-### Rate Limiting
-
-```typescript
-// Environment-based defaults
-RATE_LIMIT_MAX = 100; // Global requests per minute
-RATE_LIMIT_AUTH_MAX = 10; // Auth requests per minute
-RATE_LIMIT_HEADERS_ENABLED = true; // Include rate limit headers
-```
-
 ### Database Configuration
 
 ```typescript
@@ -265,43 +256,22 @@ echo $COGNITO_CLIENT_ID
 npm run demo:jwt-verification
 ```
 
-**Rate Limiting Issues**:
-
-```bash
-# Check rate limit configuration
-curl -H "X-Forwarded-For: test-ip" \
-     -w "%{http_code}\n" \
-     http://localhost:3000/
-```
-
 ## Documentation
 
 - [Docker Setup Guide](./README-Docker.md)
 - [JWT Verification Guide](./README-JWT-Verification.md)
-- [Rate Limiting Configuration](../docs/rate-limiting-configuration.md)
 - [Monitoring Setup](../docs/monitoring-quick-setup.md)
 
 # Backend API Configuration
 
-| Variable                     | Description                   | Default                  | Required |
-| ---------------------------- | ----------------------------- | ------------------------ | -------- |
-| `NODE_ENV`                   | Environment mode              | `development`            | No       |
-| `PORT`                       | Server port                   | `3000`                   | No       |
-| `AWS_REGION`                 | AWS region                    | `ap-southeast-2`         | Yes      |
-| `DYNAMODB_TABLE_NAME`        | DynamoDB table name           | -                        | Yes      |
-| `DYNAMODB_ENDPOINT`          | DynamoDB endpoint (for local) | -                        | No       |
-| `COGNITO_USER_POOL_ID`       | Cognito User Pool ID          | -                        | Yes\*    |
-| `COGNITO_CLIENT_ID`          | Cognito Client ID             | -                        | Yes\*    |
-| `RATE_LIMIT_MAX`             | Global requests per minute    | `50` (dev), `100` (prod) | No       |
-| `RATE_LIMIT_AUTH_MAX`        | Auth requests per minute      | `5` (dev), `10` (prod)   | No       |
-| `RATE_LIMIT_HEADERS_ENABLED` | Include rate limit headers    | `true`                   | No       |
+| Variable               | Description                   | Default          | Required |
+| ---------------------- | ----------------------------- | ---------------- | -------- |
+| `NODE_ENV`             | Environment mode              | `development`    | No       |
+| `PORT`                 | Server port                   | `3000`           | No       |
+| `AWS_REGION`           | AWS region                    | `ap-southeast-2` | Yes      |
+| `DYNAMODB_TABLE_NAME`  | DynamoDB table name           | -                | Yes      |
+| `DYNAMODB_ENDPOINT`    | DynamoDB endpoint (for local) | -                | No       |
+| `COGNITO_USER_POOL_ID` | Cognito User Pool ID          | -                | Yes\*    |
+| `COGNITO_CLIENT_ID`    | Cognito Client ID             | -                | Yes\*    |
 
 \*Required for authentication features
-
-### Environment-Specific Rate Limits
-
-| Environment | Global Limit | Auth Limit | Purpose             |
-| ----------- | ------------ | ---------- | ------------------- |
-| Development | 50/min       | 5/min      | Local development   |
-| Test        | 1000/min     | 100/min    | Load testing        |
-| Production  | 100/min      | 10/min     | Production workload |

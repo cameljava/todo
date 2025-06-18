@@ -71,12 +71,7 @@ export class AppRunnerStack extends cdk.Stack {
               { name: 'AWS_REGION', value: cdk.Stack.of(this).region },
               { name: 'DYNAMODB_TABLE_NAME', value: todoTable.tableName },
               { name: 'COGNITO_USER_POOL_ID', value: userPool.userPoolId },
-              { name: 'COGNITO_CLIENT_ID', value: userPoolClient.userPoolClientId },
-              { name: 'RATE_LIMIT_MAX', value: '50' },
-              { name: 'RATE_LIMIT_WINDOW', value: '1 minute' },
-              { name: 'RATE_LIMIT_AUTH_MAX', value: '5' },
-              { name: 'RATE_LIMIT_AUTH_WINDOW', value: '1 minute' },
-              { name: 'RATE_LIMIT_HEADERS_ENABLED', value: 'true' },
+              { name: 'COGNITO_CLIENT_ID', value: userPoolClient.userPoolClientId }
             ],
           },
         },

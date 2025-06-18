@@ -1,24 +1,11 @@
 import Fastify, { FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
-import rateLimit from '@fastify/rate-limit';
 import { createTodoApp, TodoAdd, TodoUpdate } from './app.js';
 import { createInMemoryStore } from './store/inMemeoryStore.js';
 import { createDynamoDbStore } from './store/dynamoDbStore.js';
 import { CognitoAuthService } from './auth/cognitoAuth.js';
 import { createJwtValidator } from './auth/jwtValidator.js';
 import { createAuthMiddleware } from './middleware/auth.js';
-import {
-  createRateLimitConfig,
-  validateRateLimitConfig,
-  logRateLimitConfig,
-} from './config/rateLimitConfig.js';
-
-// Rate limiting configuration
-const rateLimitConfig = createRateLimitConfig();
-
-// Validate and log configuration
-validateRateLimitConfig(rateLimitConfig);
-logRateLimitConfig(rateLimitConfig);
 
 // Configure store - use DynamoDB if configured, otherwise in-memory
 const store = process.env.DYNAMODB_TABLE_NAME
@@ -67,49 +54,6 @@ const fastify = Fastify({
 fastify.register(cors, {
   origin: true,
   methods: ['GET', 'POST', 'DELETE'],
-});
-
-// Global rate limiting - conservative default
-await fastify.register(rateLimit, {
-  max: rateLimitConfig.global.max,
-  timeWindow: rateLimitConfig.global.timeWindow,
-  errorResponseBuilder: function (request, context) {
-    return {
-      code: 429,
-      error: 'Too Many Requests',
-      message: `Rate limit exceeded. You can make ${context.max} requests per minute. Try again in ${Math.round(context.ttl / 1000)} seconds.`,
-      retryAfter: Math.round(context.ttl / 1000),
-    };
-  },
-  addHeaders: rateLimitConfig.headers.enabled
-    ? {
-        'x-ratelimit-limit': true,
-        'x-ratelimit-remaining': true,
-        'x-ratelimit-reset': true,
-      }
-    : {},
-});
-
-// Stricter rate limiting for authentication-related endpoints
-await fastify.register(async function (fastify) {
-  await fastify.register(rateLimit, {
-    max: rateLimitConfig.auth.max,
-    timeWindow: rateLimitConfig.auth.timeWindow,
-    keyGenerator: function (request) {
-      return request.ip; // Rate limit by IP for auth operations
-    },
-    errorResponseBuilder: function (request, context) {
-      return {
-        code: 429,
-        error: 'Authentication Rate Limit Exceeded',
-        message: `Too many authentication attempts. Try again in ${Math.round(context.ttl / 1000)} seconds.`,
-        retryAfter: Math.round(context.ttl / 1000),
-      };
-    },
-  });
-
-  // This will apply stricter limits to any auth-related endpoints
-  // Currently no explicit auth endpoints, but ready for future implementation
 });
 
 // Helper function to get user ID from request

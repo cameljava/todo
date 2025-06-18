@@ -167,13 +167,11 @@ curl -I $FRONTEND_URL
 ```bash
 # Development configuration
 npx cdk deploy --context environment=dev \
-  --context enableDetailedMonitoring=true \
-  --context rateLimitPerMinute=1000
+  --context enableDetailedMonitoring=true
 
 # Production configuration
 npx cdk deploy --context environment=prod \
   --context enableDetailedMonitoring=true \
-  --context rateLimitPerMinute=2000 \
   --context alertEmail=ops@company.com
 ```
 
@@ -188,10 +186,6 @@ const stackProps: TodoAppStackProps = {
   certificateArn: 'arn:aws:acm:...',
   enableWaf: true,
   enableMonitoring: true,
-  rateLimitConfig: {
-    globalLimit: 2000,
-    authLimit: 10,
-  },
 };
 ```
 
