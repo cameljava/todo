@@ -430,7 +430,7 @@ exports.handler = async () => {
 
     return new synthetics.Canary(this, 'HealthCheckCanary', {
       canaryName: `${appName}-${environment}-hc`,
-      schedule: synthetics.Schedule.rate(cdk.Duration.minutes(5)),
+      schedule: synthetics.Schedule.rate(cdk.Duration.minutes(60)),
       test: synthetics.Test.custom({
         code: canaryCode,
         handler: 'index.handler',
@@ -439,8 +439,8 @@ exports.handler = async () => {
       environmentVariables: {
         ENVIRONMENT: environment,
       },
-      successRetentionPeriod: cdk.Duration.days(7),
-      failureRetentionPeriod: cdk.Duration.days(30),
+      successRetentionPeriod: cdk.Duration.days(3),
+      failureRetentionPeriod: cdk.Duration.days(3),
     });
   }
 }
