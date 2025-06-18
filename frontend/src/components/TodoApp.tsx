@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 
 // Simple debounce utility
@@ -39,7 +39,8 @@ type TodoDetails = Omit<Todo, 'id'>;
 function TodoApp() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const { getAccessToken } = useAuth();
-  const todoApi = createTodoApi(getAccessToken);
+  // Memoize todoApi to prevent infinite loop
+  const todoApi = useMemo(() => createTodoApi(getAccessToken), [getAccessToken]);
 
   // Example: Add a state for user notifications
   const [notification, setNotification] = useState<string | null>(null);
