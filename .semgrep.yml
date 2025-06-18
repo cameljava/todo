@@ -146,14 +146,6 @@ rules:
     severity: ERROR
     languages: [javascript, typescript]
 
-  # Fastify specific security
-  - id: fastify-no-rate-limiting
-    pattern: |
-      fastify.register(require('@fastify/rate-limit'), {max: $MAX})
-    message: 'Rate limiting configuration found. Ensure max value is appropriate.'
-    severity: INFO
-    languages: [javascript, typescript]
-
   # React specific security
   - id: react-href-javascript
     pattern: |
