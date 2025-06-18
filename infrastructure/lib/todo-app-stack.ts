@@ -22,7 +22,6 @@ export class TodoAppStack extends cdk.Stack {
   public readonly userPoolDomain: cognito.UserPoolDomain;
   public readonly backendRole: iam.Role;
   public readonly ecrRepository: ecr.Repository;
-  public readonly appRunnerService?: cdk.CfnResource;
   public readonly frontendBucket: s3.Bucket;
   public readonly cloudFrontDistribution: cloudfront.Distribution;
 
@@ -62,7 +61,7 @@ export class TodoAppStack extends cdk.Stack {
       userPoolName: `${appName}-${environment}-users`,
       signInAliases: {
         email: true,
-        username: true,
+        username: false,
       },
       autoVerify: {
         email: true,
@@ -161,93 +160,6 @@ export class TodoAppStack extends cdk.Stack {
       removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
-    // IAM Role for App Runner ECR access
-    const _appRunnerECRRole = new iam.Role(this, 'AppRunnerECRRole', {
-      roleName: `${appName}-${environment}-apprunner-ecr-role`,
-      assumedBy: new iam.ServicePrincipal('build.apprunner.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName(
-          'service-role/AWSAppRunnerServicePolicyForECRAccess'
-        ),
-      ],
-    });
-
-    // IAM Role for App Runner Service
-    const _appRunnerServiceRole = new iam.Role(this, 'AppRunnerServiceRole', {
-      roleName: `${appName}-${environment}-apprunner-service-role`,
-      assumedBy: new iam.ServicePrincipal('tasks.apprunner.amazonaws.com'),
-    });
-
-    // Grant DynamoDB permissions to App Runner service role
-    this.todoTable.grantReadWriteData(_appRunnerServiceRole);
-
-    // Grant Cognito permissions to App Runner service role
-    _appRunnerServiceRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['cognito-idp:GetUser', 'cognito-idp:AdminGetUser', 'cognito-idp:ListUsers'],
-        resources: [this.userPool.userPoolArn],
-      })
-    );
-
-    /* Temporarily commenting out App Runner service until we have the image
-    // App Runner Service
-    this.appRunnerService = new cdk.CfnResource(this, 'BackendAppRunnerService', {
-      type: 'AWS::AppRunner::Service',
-      properties: {
-        ServiceName: `${appName}-${environment}-backend-api`,
-        SourceConfiguration: {
-          AuthenticationConfiguration: {
-            AccessRoleArn: appRunnerECRRole.roleArn,
-          },
-          ImageRepository: {
-            ImageIdentifier: `${this.ecrRepository.repositoryUri}:latest`,
-            ImageConfiguration: {
-              Port: '3000',
-              RuntimeEnvironmentVariables: [
-                {
-                  Name: 'NODE_ENV',
-                  Value: environment,
-                },
-                {
-                  Name: 'AWS_REGION',
-                  Value: cdk.Stack.of(this).region,
-                },
-                {
-                  Name: 'DYNAMODB_TABLE_NAME',
-                  Value: this.todoTable.tableName,
-                },
-                {
-                  Name: 'COGNITO_USER_POOL_ID',
-                  Value: this.userPool.userPoolId,
-                },
-                {
-                  Name: 'COGNITO_CLIENT_ID',
-                  Value: this.userPoolClient.userPoolClientId,
-                },
-              ],
-            },
-            ImageRepositoryType: 'ECR',
-          },
-          AutoDeploymentsEnabled: false,
-        },
-        HealthCheckConfiguration: {
-          Protocol: 'HTTP',
-          Path: '/health',
-          Interval: 10,
-          Timeout: 5,
-          HealthyThreshold: 1,
-          UnhealthyThreshold: 3,
-        },
-        InstanceConfiguration: {
-          InstanceRoleArn: appRunnerServiceRole.roleArn,
-          Cpu: '1 vCPU',
-          Memory: '2 GB',
-        },
-      },
-    });
-    */
-
     // S3 Bucket for Frontend Hosting
     this.frontendBucket = new s3.Bucket(this, 'FrontendBucket', {
       bucketName: `${appName}-${environment}-frontend-${cdk.Stack.of(this).account}`,
@@ -301,7 +213,6 @@ export class TodoAppStack extends cdk.Stack {
     const _monitoring = new MonitoringConstruct(this, 'Monitoring', {
       appName,
       environment,
-      // appRunnerServiceArn: this.appRunnerService.getAtt('ServiceArn').toString(),  // Temporarily commented out
       cloudFrontDistribution: this.cloudFrontDistribution,
       dynamoTableName: this.todoTable.tableName,
       alertEmail: this.node.tryGetContext('alertEmail'),
@@ -400,20 +311,6 @@ export class TodoAppStack extends cdk.Stack {
       description: 'ECR Repository Name',
       exportName: `${id}-EcrRepositoryName`,
     });
-
-    /* Temporarily commented out until App Runner service is added back
-    new cdk.CfnOutput(this, 'AppRunnerServiceUrl', {
-      value: this.appRunnerService.getAtt('ServiceUrl').toString(),
-      description: 'App Runner Service URL',
-      exportName: `${id}-AppRunnerServiceUrl`,
-    });
-
-    new cdk.CfnOutput(this, 'AppRunnerServiceArn', {
-      value: this.appRunnerService.getAtt('ServiceArn').toString(),
-      description: 'App Runner Service ARN',
-      exportName: `${id}-AppRunnerServiceArn`,
-    });
-    */
 
     new cdk.CfnOutput(this, 'FrontendBucketName', {
       value: this.frontendBucket.bucketName,

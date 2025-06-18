@@ -1,0 +1,22 @@
+{
+  "app": "npx ts-node --prefer-ts-exts bin/app-runner-deploy.ts",
+  "watch": {
+    "include": ["**"],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "**/*.d.ts",
+      "**/*.js",
+      "tsconfig.json",
+      "package*.json",
+      "yarn.lock",
+      "node_modules",
+      "test"
+    ]
+  },
+  "context": {
+    "environment": "dev",
+    "appName": "todo-app",
+    "@aws-cdk/core:target": "aws-cdk-lib"
+  }
+}

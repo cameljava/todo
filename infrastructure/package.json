@@ -14,7 +14,8 @@
     "diff": "cdk diff",
     "bootstrap": "cdk bootstrap",
     "lint": "eslint .",
-    "clean": "rm -rf dist node_modules cdk.out"
+    "clean": "rm -rf dist node_modules cdk.out",
+    "deploy:apprunner": "bash scripts/deploy-apprunner.sh"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
