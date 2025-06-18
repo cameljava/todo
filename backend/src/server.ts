@@ -128,6 +128,15 @@ if (authMiddleware) {
   });
 }
 
+// --- Startup Diagnostics ---
+console.info('Starting backend server...');
+console.info('Environment:', process.env.NODE_ENV);
+console.info('Region:', process.env.AWS_REGION);
+console.info('DynamoDB Table:', process.env.DYNAMODB_TABLE_NAME);
+console.info('Cognito User Pool ID:', process.env.COGNITO_USER_POOL_ID);
+console.info('Cognito Client ID:', process.env.COGNITO_CLIENT_ID);
+console.info('Port:', process.env.PORT || '3000');
+
 // Health check endpoint
 fastify.get('/health', async (request, reply) => {
   const healthCheck = {
@@ -144,36 +153,45 @@ fastify.get('/health', async (request, reply) => {
   };
 
   try {
-    // Check database connectivity
-    try {
-      await store.list('health-check');
-      healthCheck.checks.database = 'ok';
-    } catch (error) {
-      console.error('Database health check failed:', error);
-      healthCheck.checks.database = 'error';
-      healthCheck.status = 'degraded';
+    // Check database connectivity - only if DynamoDB is configured
+    if (process.env.DYNAMODB_TABLE_NAME) {
+      try {
+        await store.list('health-check');
+        healthCheck.checks.database = 'ok';
+        console.info('[HealthCheck] DynamoDB connectivity: OK');
+      } catch (error) {
+        console.error('[HealthCheck] Database health check failed:', error);
+        healthCheck.checks.database = 'error';
+        healthCheck.status = 'degraded';
+      }
+    } else {
+      healthCheck.checks.database = 'not-configured';
+      console.info('[HealthCheck] DynamoDB not configured');
     }
 
     // Check authentication service
     if (cognitoService) {
-      // Simple check - if cognito service is configured, consider it healthy
       healthCheck.checks.auth = 'ok';
+      console.info('[HealthCheck] Cognito service: OK');
     } else {
       healthCheck.checks.auth = 'disabled';
+      console.info('[HealthCheck] Cognito service: DISABLED');
     }
 
     // Check memory usage
     const memoryUsage = process.memoryUsage();
     const memoryUsageMB = memoryUsage.heapUsed / 1024 / 1024;
     if (memoryUsageMB > 512) {
-      // Alert if using more than 512MB
       healthCheck.checks.memory = 'warning';
       healthCheck.status = 'degraded';
+      console.warn('[HealthCheck] Memory usage high:', memoryUsageMB, 'MB');
+    } else {
+      console.info('[HealthCheck] Memory usage:', memoryUsageMB, 'MB');
     }
 
     reply.send(healthCheck);
   } catch (error) {
-    console.error('Health check failed:', error);
+    console.error('[HealthCheck] Health check failed:', error);
     healthCheck.status = 'error';
     reply.status(503).send(healthCheck);
   }
@@ -294,18 +312,24 @@ fastify.delete<{ Params: { id: string } }>(
   }
 );
 
-fastify.listen(
-  {
-    port: parseInt(process.env.PORT || '3000'),
-    host: '0.0.0.0',
-  },
-  function (err) {
-    if (err) {
-      fastify.log.error(err);
-      process.exit(1);
+// --- Startup Delay ---
+const startupDelayMs = 5000; // 5 seconds
+console.info(`Delaying server startup by ${startupDelayMs / 1000} seconds to allow resources to initialize...`);
+
+setTimeout(() => {
+  fastify.listen(
+    {
+      port: parseInt(process.env.PORT || '3000'),
+      host: '0.0.0.0',
+    },
+    function (err) {
+      if (err) {
+        fastify.log.error(err);
+        process.exit(1);
+      }
+      console.info(`🚀 Server listening on http://0.0.0.0:${process.env.PORT || 3000}`);
     }
-    console.log(`🚀 Server listening on http://0.0.0.0:${process.env.PORT || 3000}`);
-  }
-);
+  );
+}, startupDelayMs);
 
 export { fastify };

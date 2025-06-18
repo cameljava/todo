@@ -67,16 +67,21 @@ export class ProductionJwtValidator implements JwtValidator {
       // Get signing key from JWKS
       const key = await this.getSigningKey(decoded.header.kid);
 
-      // Verify token signature and claims
+      // Verify token signature and claims (skip audience check here)
       const payload = jwt.verify(token, key, {
         issuer: this.issuer,
-        audience: this.config.clientId,
         algorithms: ['RS256'],
-      }) as CognitoTokenPayload;
+      }) as CognitoTokenPayload & { client_id?: string };
 
       // Validate token type
       if (payload.token_use !== 'access') {
         console.error('Invalid token: not an access token');
+        return null;
+      }
+
+      // Accept either aud or client_id as audience
+      if (payload.aud !== this.config.clientId && payload.client_id !== this.config.clientId) {
+        console.error('Invalid token: audience/client_id does not match');
         return null;
       }
 
@@ -128,10 +133,10 @@ export class DevelopmentJwtValidator implements JwtValidator {
         return null;
       }
 
-      const payload = decoded.payload as CognitoTokenPayload;
+      const payload = decoded.payload as CognitoTokenPayload & { client_id?: string };
 
-      // Basic validation
-      if (!payload.sub || !payload.aud) {
+      // Basic validation: accept either aud or client_id
+      if (!payload.sub || (!payload.aud && !payload.client_id)) {
         console.error('Invalid token: missing required claims');
         return null;
       }
@@ -140,6 +145,12 @@ export class DevelopmentJwtValidator implements JwtValidator {
       const now = Math.floor(Date.now() / 1000);
       if (payload.exp && payload.exp < now) {
         console.error('Token expired');
+        return null;
+      }
+
+      // Accept either aud or client_id as audience
+      if (payload.aud !== this.config.clientId && payload.client_id !== this.config.clientId) {
+        console.error('Invalid token: audience/client_id does not match');
         return null;
       }
 
