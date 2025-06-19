@@ -279,6 +279,13 @@ function createTodoApi(getAccessToken: () => Promise<string | null>) {
     };
   };
 
+  const getAuthHeadersWithoutContentType = async () => {
+    const token = await getAccessToken();
+    return {
+      ...(token && { Authorization: `Bearer ${token}` }),
+    };
+  };
+
   // Helper to process fetch response
   const processResponse = async (res: Response, errorMessagePrefix: string) => {
     if (res.status === 204) {
@@ -328,7 +335,7 @@ function createTodoApi(getAccessToken: () => Promise<string | null>) {
       return (await processResponse(res, 'Failed to update todo')) as Todo;
     },
     async remove(id: string) {
-      const headers = await getAuthHeaders();
+      const headers = await getAuthHeadersWithoutContentType();
       const res = await fetch(`${baseUrl}/${id}`, {
         method: 'DELETE',
         headers,

@@ -17,6 +17,7 @@ AWS CDK Infrastructure as Code for deploying a scalable, secure Todo application
 infrastructure/
 ├── lib/
 │   ├── todo-app-stack.ts       # Main CDK stack definition
+│   ├── app-runner-stack.ts     # App Runner service stack
 │   ├── constructs/             # Reusable CDK constructs
 │   │   ├── monitoring.ts       # CloudWatch monitoring setup
 │   │   └── cognito-identity-providers.ts # Social login providers
@@ -69,7 +70,8 @@ aws sts get-caller-identity
         "iam:*",
         "ecr:*",
         "logs:*",
-        "sns:*"
+        "sns:*",
+        "synthetics:*"
       ],
       "Resource": "*"
     }
@@ -196,91 +198,60 @@ const stackProps: TodoAppStackProps = {
 - **Auto-scaling**: Automatic scaling based on request volume
 - **Container**: ECR repository for Docker images
 - **Health Checks**: Integrated health monitoring
-- **Security**: VPC connector for secure database access
+- **Security**: IAM roles with least privilege access
 
 ### Frontend (S3 + CloudFront)
 
 - **Static Hosting**: S3 bucket with CloudFront distribution
 - **Global CDN**: Edge locations for low latency
-- **Security**: WAF protection against common attacks
-- **SSL/TLS**: Automatic HTTPS with ACM certificates
+- **Security**: Private bucket with CloudFront OAI
+- **SSL/TLS**: Automatic HTTPS with CloudFront
 
 ### Database (DynamoDB)
 
 - **Serverless**: On-demand billing and auto-scaling
-- **Global Tables**: Multi-region replication (optional)
-- **Backup**: Point-in-time recovery enabled
-- **Monitoring**: CloudWatch metrics and alarms
+- **Schema**: Partition key (id) and sort key (userId)
+- **Indexes**: Global Secondary Index for userId queries
+- **Backup**: Point-in-time recovery in production
 
 ### Authentication (Cognito)
 
 - **User Pool**: Email-based authentication
-- **Social Login**: Google, Facebook integration
-- **OAuth2/OIDC**: Standard authentication flows
-- **Multi-Factor**: Optional MFA configuration
+- **Security**: Strong password policy
+- **OAuth2**: Authorization code grant flow
+- **Custom Domain**: Cognito domain for authentication
 
 ### Monitoring (CloudWatch)
 
-- **Dashboards**: Centralized metrics visualization
-- **Alarms**: Automated alerting for critical issues
-- **Synthetics**: Proactive health checking
-- **Logs**: Centralized log aggregation
-
-## Monitoring & Alerting
-
-### CloudWatch Dashboard
-
-```bash
-# Get dashboard URL
-aws cloudformation describe-stacks \
-  --stack-name TodoAppStack-prod \
-  --query 'Stacks[0].Outputs[?OutputKey==`MonitoringDashboardUrl`].OutputValue' \
-  --output text
-```
-
-### Key Metrics Monitored
-
-- **Frontend**: CloudFront error rates, cache hit ratio
-- **Backend**: App Runner response times, error counts
-- **Database**: DynamoDB throttling, latency
-- **Authentication**: Cognito sign-in success rates
-
-### Alert Configuration
-
-```typescript
-// Example alarm configuration
-const errorAlarm = new cloudwatch.Alarm(this, 'HighErrorRate', {
-  metric: appRunnerService.metricHttp5xxCount(),
-  threshold: 10,
-  evaluationPeriods: 2,
-  treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-});
-
-errorAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alertTopic));
-```
+- **Dashboards**:
+  - CloudFront metrics (requests, errors, cache performance)
+  - App Runner metrics (requests, response times, instances)
+  - DynamoDB metrics (operations, latency)
+- **Alarms**:
+  - CloudFront 4xx/5xx error rates
+  - App Runner response times and errors
+  - DynamoDB throttling and latency
+- **Synthetics**: Health check canary (non-dev environments)
 
 ## Security Features
 
 ### Network Security
 
-- **VPC**: Private subnets for backend resources
-- **Security Groups**: Least-privilege network access
-- **WAF**: Web Application Firewall with rate limiting
-- **SSL/TLS**: End-to-end encryption
+- **CloudFront**: HTTPS-only with modern TLS
+- **S3**: Private bucket with CloudFront OAI
+- **App Runner**: Private service with IAM authentication
 
 ### Application Security
 
 - **IAM Roles**: Least-privilege access for all resources
 - **Cognito**: Secure authentication with JWT tokens
 - **CORS**: Properly configured cross-origin policies
-- **Input Validation**: Server-side validation and sanitization
 
 ### Data Security
 
 - **Encryption**: Data encrypted at rest and in transit
 - **User Isolation**: Data partitioned by user ID
-- **Backup**: Automated backups with point-in-time recovery
-- **Audit Logs**: CloudTrail integration for compliance
+- **Backup**: Point-in-time recovery in production
 
 ## Cost Optimization
 
@@ -292,14 +263,9 @@ errorAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alertTopic));
 
 ### Resource Optimization
 
-```bash
-# Monitor costs by service
-aws ce get-cost-and-usage \
-  --time-period Start=2024-01-01,End=2024-01-31 \
-  --granularity MONTHLY \
-  --metrics BlendedCost \
-  --group-by Type=DIMENSION,Key=SERVICE
-```
+- **CloudFront**: Price Class 100 (North America and Europe)
+- **DynamoDB**: On-demand capacity mode
+- **Monitoring**: Synthetic canaries disabled in dev
 
 ## Troubleshooting
 
@@ -366,15 +332,10 @@ npm update
 ### Backup and Recovery
 
 ```bash
-# Enable DynamoDB backups
-aws dynamodb put-backup-policy \
+# Enable DynamoDB point-in-time recovery
+aws dynamodb update-continuous-backups \
   --table-name todo-app-prod-todos \
-  --backup-policy BillingMode=PAY_PER_REQUEST
-
-# Create manual backup
-aws dynamodb create-backup \
-  --table-name todo-app-prod-todos \
-  --backup-name manual-backup-$(date +%Y%m%d)
+  --point-in-time-recovery-specification PointInTimeRecoveryEnabled=true
 ```
 
 ## Documentation

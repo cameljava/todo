@@ -248,6 +248,7 @@ fastify.delete<{ Params: { id: string } }>(
           id: { type: 'string' },
         },
       },
+      body: null,
     },
   },
   async (request, _reply) => {
@@ -258,7 +259,9 @@ fastify.delete<{ Params: { id: string } }>(
 
 // --- Startup Delay ---
 const startupDelayMs = 5000; // 5 seconds
-console.info(`Delaying server startup by ${startupDelayMs / 1000} seconds to allow resources to initialize...`);
+console.info(
+  `Delaying server startup by ${startupDelayMs / 1000} seconds to allow resources to initialize...`
+);
 
 setTimeout(() => {
   fastify.listen(

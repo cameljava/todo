@@ -361,8 +361,7 @@ MIT License - see LICENSE file for details.
 
 ### Operations & Security
 
-- [🔒 Rate Limiting Guide](./docs/rate-limiting-solution-design.md) - Multi-layered security implementation
-- [📊 Monitoring Setup](./docs/monitoring-quick-setup.md) - Health monitoring and alerting
+- [ Monitoring Setup](./docs/monitoring-quick-setup.md) - Health monitoring and alerting
 - [🔄 CI/CD Pipeline](./docs/bitbucket-pipeline-setup.md) - Automated deployment configuration
 
 ### Quick Start Guides
