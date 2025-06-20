@@ -11,7 +11,7 @@
     "clean:all": "npm run clean && npm run clean --workspaces",
     "lint": "npm run lint --workspaces",
     "format": "prettier --write .",
-    "prepare": "husky"
+    "setup:husky": "husky init"
   },
   "devDependencies": {
     "husky": "^9.1.7",

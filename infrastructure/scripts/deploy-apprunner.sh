@@ -40,7 +40,9 @@
 #    export COGNITO_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
 #
 # 2. Run the script:
-#    ./scripts/deploy-apprunner.sh
+#    ./scripts/deploy-apprunner.sh          # Deploy AppRunner stack
+#    ./scripts/deploy-apprunner.sh list     # List available stacks
+#    ./scripts/deploy-apprunner.sh destroy  # Destroy AppRunner stack
 #
 # 3. Or use npm script:
 #    npm run deploy:apprunner
@@ -62,6 +64,92 @@ fi
 ENVIRONMENT=${ENVIRONMENT:-dev}
 APP_NAME=${APP_NAME:-todo-app}
 
+# Function to check dependencies
+check_dependencies() {
+  echo "Checking dependencies..."
+  
+  # Check if jq is installed
+  if ! command -v jq &> /dev/null; then
+    echo "Error: jq is not installed"
+    echo "Please install jq first:"
+    echo "  macOS: brew install jq"
+    echo "  Ubuntu/Debian: sudo apt-get install jq"
+    echo "  CentOS/RHEL: sudo yum install jq"
+    exit 1
+  fi
+  
+  # Check if Node.js is installed
+  if ! command -v node &> /dev/null; then
+    echo "Error: Node.js is not installed"
+    echo "Please install Node.js first: https://nodejs.org/"
+    exit 1
+  fi
+  
+  # Check if npm is installed
+  if ! command -v npm &> /dev/null; then
+    echo "Error: npm is not installed"
+    echo "Please install npm first: https://www.npmjs.com/"
+    exit 1
+  fi
+  
+  echo "All dependencies are installed"
+}
+
+# Function to validate Cognito IDs format
+validate_cognito_ids() {
+  if [ -n "$COGNITO_USER_POOL_ID" ]; then
+    # User Pool ID format: region_xxxxxxxxx
+    if [[ ! "$COGNITO_USER_POOL_ID" =~ ^[a-z0-9-]+_[a-zA-Z0-9]+$ ]]; then
+      echo "Error: Invalid Cognito User Pool ID format: $COGNITO_USER_POOL_ID"
+      echo "Expected format: region_xxxxxxxxx (e.g., ap-southeast-2_xxxxxxxxx)"
+      exit 1
+    fi
+  fi
+  
+  if [ -n "$COGNITO_CLIENT_ID" ]; then
+    # Client ID format: alphanumeric string
+    if [[ ! "$COGNITO_CLIENT_ID" =~ ^[a-zA-Z0-9]+$ ]]; then
+      echo "Error: Invalid Cognito Client ID format: $COGNITO_CLIENT_ID"
+      echo "Expected format: alphanumeric string"
+      exit 1
+    fi
+  fi
+}
+
+# Function to show help
+show_help() {
+  cat << EOF
+AppRunnerStack Deployment Script
+
+Usage: $0 [COMMAND]
+
+Commands:
+  deploy   Deploy AppRunner stack (default)
+  destroy  Destroy AppRunner stack
+  list     List available stacks
+  help     Show this help message
+
+Environment Variables:
+  ENVIRONMENT              Deployment environment (default: dev)
+  APP_NAME                 Application name (default: todo-app)
+  COGNITO_USER_POOL_ID     Cognito User Pool ID
+  COGNITO_CLIENT_ID        Cognito User Pool Client ID
+
+Examples:
+  $0                      # Deploy AppRunner stack
+  $0 deploy               # Deploy AppRunner stack
+  $0 destroy              # Destroy AppRunner stack
+  $0 list                 # List available stacks
+  $0 help                 # Show this help
+
+Prerequisites:
+  1. TodoAppStack must be deployed first
+  2. AWS credentials must be configured
+  3. Required dependencies: aws-cli, jq, node, npm
+
+EOF
+}
+
 # Function to get Cognito IDs from CloudFormation outputs
 get_cognito_ids() {
   local stack_name="${APP_NAME}-${ENVIRONMENT}"
@@ -75,6 +163,7 @@ get_cognito_ids() {
   
   if [ $? -ne 0 ]; then
     echo "Error: Failed to get Cognito IDs from CloudFormation outputs"
+    echo "Please ensure the main stack is deployed and accessible"
     exit 1
   fi
   
@@ -85,6 +174,7 @@ get_cognito_ids() {
   
   if [ -z "$COGNITO_USER_POOL_ID" ] || [ -z "$COGNITO_CLIENT_ID" ]; then
     echo "Error: Could not find Cognito IDs in CloudFormation outputs"
+    echo "Please ensure the main stack is deployed correctly"
     exit 1
   fi
   
@@ -171,7 +261,10 @@ check_aws_credentials() {
 # Ensure we're in the infrastructure directory
 cd "$(dirname "$0")/.." || exit 1
 
-# Check AWS credentials first
+# Check dependencies first
+check_dependencies
+
+# Check AWS credentials
 check_aws_credentials
 
 # Check if main stack exists before proceeding
@@ -182,26 +275,115 @@ if [ -z "$COGNITO_USER_POOL_ID" ] || [ -z "$COGNITO_CLIENT_ID" ]; then
   get_cognito_ids
 fi
 
+# Validate Cognito IDs format
+validate_cognito_ids
+
 # Validate required resources
 validate_resources
 
 # Function to run CDK command with Cognito context
 run_cdk_command() {
   local command="$1"
+  echo "Running CDK command: $command"
   npx cdk "$command" ${APP_NAME}-${ENVIRONMENT}-apprunner \
     --app "npx ts-node --prefer-ts-exts bin/app-runner-deploy.ts" \
     --context environment=${ENVIRONMENT} \
     --context appName=${APP_NAME} \
     --context userPoolId=${COGNITO_USER_POOL_ID} \
     --context userPoolClientId=${COGNITO_CLIENT_ID}
+  
+  local exit_code=$?
+  if [ $exit_code -ne 0 ]; then
+    echo "❌ CDK command failed with exit code: $exit_code"
+    return $exit_code
+  fi
+  return 0
+}
+
+# Function to deploy AppRunner stack
+deploy_apprunner_stack() {
+  echo "Deploying AppRunnerStack for environment: $ENVIRONMENT"
+  echo "Using configuration:"
+  echo "  Environment: $ENVIRONMENT"
+  echo "  App Name: $APP_NAME"
+  echo "  User Pool ID: $COGNITO_USER_POOL_ID"
+  echo "  Client ID: $COGNITO_CLIENT_ID"
+  echo ""
+  
+  # Run deploy command
+  run_cdk_command "deploy"
+  
+  if [ $? -eq 0 ]; then
+    echo ""
+    echo "✅ AppRunner stack deployed successfully!"
+    echo ""
+    echo "Next steps:"
+    echo "1. Build and push your backend image to ECR"
+    echo "2. Update the App Runner service with the new image"
+    echo "3. Test the deployed service"
+  else
+    echo ""
+    echo "❌ Failed to deploy AppRunner stack"
+    exit 1
+  fi
+}
+
+# Function to destroy AppRunner stack
+destroy_apprunner_stack() {
+  echo "Destroying AppRunnerStack for environment: $ENVIRONMENT"
+  echo "This will remove the App Runner service and associated resources."
+  echo ""
+  
+  # Check if AppRunner stack exists
+  local stack_name="${APP_NAME}-${ENVIRONMENT}-apprunner"
+  if ! aws cloudformation describe-stacks --stack-name "$stack_name" >/dev/null 2>&1; then
+    echo "Error: AppRunner stack $stack_name does not exist"
+    echo "Nothing to destroy."
+    exit 1
+  fi
+  
+  echo "AppRunner stack $stack_name found. Proceeding with destruction..."
+  echo ""
+  
+  # Confirm destruction
+  read -p "Are you sure you want to destroy the AppRunner stack? This action cannot be undone. (y/N): " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Destruction cancelled."
+    exit 0
+  fi
+  
+  # Run destroy command
+  run_cdk_command "destroy"
+  
+  if [ $? -eq 0 ]; then
+    echo ""
+    echo "✅ AppRunner stack destroyed successfully!"
+    echo "Note: The main stack (${APP_NAME}-${ENVIRONMENT}) and its resources remain intact."
+  else
+    echo ""
+    echo "❌ Failed to destroy AppRunner stack"
+    exit 1
+  fi
 }
 
 # Check if we're just listing stacks
 if [ "$1" = "list" ]; then
   echo "Listing available stacks..."
   run_cdk_command "list"
+elif [ "$1" = "destroy" ]; then
+  # Destroy AppRunner stack
+  destroy_apprunner_stack
+elif [ "$1" = "help" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  # Show help
+  show_help
+elif [ "$1" = "deploy" ] || [ -z "$1" ]; then
+  # Deploy AppRunnerStack (default action)
+  deploy_apprunner_stack
 else
-  # Deploy AppRunnerStack
-  echo "Deploying AppRunnerStack for environment: $ENVIRONMENT"
-  run_cdk_command "deploy"
+  # Unknown command
+  echo "Error: Unknown command '$1'"
+  echo ""
+  show_help
+  exit 1
 fi 

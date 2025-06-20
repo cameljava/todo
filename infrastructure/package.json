@@ -7,15 +7,14 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk",
-    "deploy": "cdk deploy",
-    "destroy": "cdk destroy",
-    "synth": "cdk synth",
-    "diff": "cdk diff",
     "bootstrap": "cdk bootstrap",
     "lint": "eslint .",
     "clean": "rm -rf dist node_modules cdk.out",
-    "deploy:apprunner": "bash scripts/deploy-apprunner.sh"
+    "deploy:apprunner": "bash scripts/deploy-apprunner.sh",
+    "destroy:apprunner": "bash scripts/deploy-apprunner.sh destroy",
+    "deploy:infra": "bash scripts/deploy.sh",
+    "deploy:infra:diff": "bash scripts/deploy.sh diff",
+    "destroy:infra": "bash scripts/deploy.sh destroy"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",

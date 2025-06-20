@@ -65,7 +65,23 @@ frontend/src/
 
 ### 1. Infrastructure Setup
 
-Deploy the AWS infrastructure using CloudFormation:
+Deploy the AWS infrastructure using the provided deployment scripts:
+
+```bash
+# Navigate to infrastructure directory
+cd infrastructure
+
+# Deploy main infrastructure (DynamoDB, Cognito, ECR, etc.)
+./scripts/deploy.sh
+
+# Deploy AppRunner service for backend
+./scripts/deploy-apprunner.sh
+
+# Get stack outputs for configuration
+./scripts/get-outputs.sh todo-app-dev env
+```
+
+**Alternative: Manual CDK Deployment**
 
 ```bash
 # Deploy the CloudFormation stack

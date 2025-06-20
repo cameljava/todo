@@ -9,6 +9,231 @@ This guide covers the complete deployment setup for the Todo App, including:
 - **Infrastructure**: Managed via AWS CDK
 - **CI/CD**: Automated via Bitbucket Pipelines
 
+## 🛠️ Deployment Scripts
+
+The project includes two main deployment scripts for different purposes:
+
+### 1. **Main Infrastructure Deployment Script** (`infrastructure/scripts/deploy.sh`)
+
+Deploys the complete infrastructure stack including DynamoDB, Cognito, ECR, and other AWS resources.
+
+### 2. **AppRunner Deployment Script** (`infrastructure/scripts/deploy-apprunner.sh`)
+
+Deploys only the AppRunner service, importing existing resources from the main stack.
+
+## 🚀 Quick Deployment Guide
+
+### Prerequisites
+
+- Node.js 22+ and npm
+- AWS CLI configured with appropriate permissions
+- CDK bootstrapped in your AWS account/region
+- Required dependencies: `jq`, `aws-cli`, `node`, `npm`
+
+### Step 1: Deploy Main Infrastructure
+
+```bash
+# Navigate to infrastructure directory
+cd infrastructure
+
+# Deploy to development environment (default)
+./scripts/deploy.sh
+
+# Or deploy to specific environment
+./scripts/deploy.sh deploy prod
+
+# Or deploy with alert email
+./scripts/deploy.sh deploy prod admin@example.com
+
+# Show what will be deployed (dry run)
+./scripts/deploy.sh diff prod
+
+# Get help
+./scripts/deploy.sh help
+```
+
+**What this deploys:**
+
+- DynamoDB table for todos
+- Cognito User Pool and Client
+- ECR repository for backend images
+- CloudWatch monitoring and alerts
+- IAM roles and policies
+
+### Step 2: Deploy AppRunner Service
+
+```bash
+# Deploy AppRunner service (requires main stack to exist)
+./scripts/deploy-apprunner.sh
+
+# Or use npm script
+npm run deploy:apprunner
+
+# Show available stacks
+./scripts/deploy-apprunner.sh list
+
+# Destroy AppRunner service only
+./scripts/deploy-apprunner.sh destroy
+
+# Get help
+./scripts/deploy-apprunner.sh help
+```
+
+**What this deploys:**
+
+- AppRunner service for backend API
+- IAM roles for AppRunner
+- Environment variables configuration
+- Service auto-scaling settings
+
+### Step 3: Build and Deploy Backend
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Build and push Docker image to ECR
+./build-and-push.sh
+
+# Or manually:
+docker build -t todo-app-backend .
+aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin <ECR_REPO_URI>
+docker tag todo-app-backend:latest <ECR_REPO_URI>:latest
+docker push <ECR_REPO_URI>:latest
+```
+
+### Step 4: Deploy Frontend
+
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Build for production
+npm run build
+
+# Deploy to S3 (requires S3 bucket and CloudFront setup)
+aws s3 sync dist/ s3://<FRONTEND_BUCKET_NAME> --delete
+aws cloudfront create-invalidation --distribution-id <CLOUDFRONT_DISTRIBUTION_ID> --paths "/*"
+```
+
+## 📋 Detailed Script Usage
+
+### Main Infrastructure Script (`deploy.sh`)
+
+#### Commands
+
+| Command   | Description                     | Example                           |
+| --------- | ------------------------------- | --------------------------------- |
+| `deploy`  | Deploy infrastructure (default) | `./scripts/deploy.sh deploy prod` |
+| `diff`    | Show deployment differences     | `./scripts/deploy.sh diff prod`   |
+| `destroy` | Destroy infrastructure          | `./scripts/deploy.sh destroy dev` |
+| `help`    | Show help information           | `./scripts/deploy.sh help`        |
+
+#### Environment Variables
+
+```bash
+# Set default environment
+export ENVIRONMENT=prod
+
+# Set default alert email
+export ALERT_EMAIL=admin@example.com
+
+# Set AWS region
+export AWS_DEFAULT_REGION=ap-southeast-2
+```
+
+#### Examples
+
+```bash
+# Deploy to development (default)
+./scripts/deploy.sh
+
+# Deploy to production with alerts
+./scripts/deploy.sh deploy prod admin@example.com
+
+# Check what will change in production
+./scripts/deploy.sh diff prod
+
+# Destroy development environment
+./scripts/deploy.sh destroy dev
+
+# Using npm scripts
+npm run deploy:infra
+npm run deploy:infra:diff prod
+npm run destroy:infra dev
+```
+
+### AppRunner Script (`deploy-apprunner.sh`)
+
+#### Commands
+
+| Command   | Description                        | Example                                 |
+| --------- | ---------------------------------- | --------------------------------------- |
+| `deploy`  | Deploy AppRunner service (default) | `./scripts/deploy-apprunner.sh deploy`  |
+| `destroy` | Destroy AppRunner service          | `./scripts/deploy-apprunner.sh destroy` |
+| `list`    | List available stacks              | `./scripts/deploy-apprunner.sh list`    |
+| `help`    | Show help information              | `./scripts/deploy-apprunner.sh help`    |
+
+#### Environment Variables
+
+```bash
+# Set default environment
+export ENVIRONMENT=prod
+
+# Set default app name
+export APP_NAME=todo-app
+
+# Set Cognito IDs (optional - will be fetched from CloudFormation)
+export COGNITO_USER_POOL_ID=ap-southeast-2_XXXXXXXXX
+export COGNITO_CLIENT_ID=your-cognito-client-id
+```
+
+#### Examples
+
+```bash
+# Deploy AppRunner service (default)
+./scripts/deploy-apprunner.sh
+
+# Deploy with explicit command
+./scripts/deploy-apprunner.sh deploy
+
+# Destroy AppRunner service
+./scripts/deploy-apprunner.sh destroy
+
+# List available stacks
+./scripts/deploy-apprunner.sh list
+
+# Using npm scripts
+npm run deploy:apprunner
+npm run destroy:apprunner
+```
+
+## 🔧 Script Features
+
+### Main Infrastructure Script Features
+
+- ✅ **Dependency validation** - Checks for required tools
+- ✅ **Environment validation** - Validates dev/staging/prod
+- ✅ **AWS credentials check** - Verifies AWS access
+- ✅ **CDK bootstrap check** - Ensures CDK is ready
+- ✅ **Email validation** - Validates alert email format
+- ✅ **Safety confirmations** - Confirms destructive operations
+- ✅ **Comprehensive error handling** - Clear error messages
+- ✅ **Stack outputs display** - Shows deployment results
+
+### AppRunner Script Features
+
+- ✅ **Resource validation** - Checks main stack exists
+- ✅ **Cognito ID auto-discovery** - Fetches from CloudFormation
+- ✅ **Dependency checks** - Validates required tools
+- ✅ **AWS credentials verification** - Ensures proper access
+- ✅ **Safety confirmations** - Confirms destructive operations
+- ✅ **Modular deployment** - Only deploys AppRunner resources
+- ✅ **Import existing resources** - Uses main stack resources
+
 ## 🏗️ Architecture
 
 ```
@@ -201,146 +426,57 @@ curl -I https://d1234567890abc.cloudfront.net
 
 ### Common Issues
 
-#### 1. **Frontend Build Fails**
+#### Script Errors
 
 ```bash
-# Check environment variables are set
-echo $COGNITO_USER_POOL_ID
-echo $FRONTEND_URL
+# Check dependencies
+./scripts/deploy.sh help
 
-# Verify Vite build configuration
-cd frontend && npm run build
+# Verify AWS credentials
+aws sts get-caller-identity
+
+# Check CDK bootstrap
+npx cdk doctor
+
+# Validate environment
+./scripts/deploy.sh diff dev
 ```
 
-#### 2. **CloudFront Cache Issues**
+#### AppRunner Issues
 
 ```bash
-# Manual cache invalidation
-aws cloudfront create-invalidation \
-  --distribution-id E1234567890ABC \
-  --paths "/*"
+# Check AppRunner service status
+aws apprunner describe-service --service-arn <SERVICE_ARN>
+
+# View service logs
+aws logs describe-log-groups --log-group-name-prefix /aws/apprunner
+
+# Check ECR repository
+aws ecr describe-repositories --repository-names todo-app-dev-backend-api
 ```
 
-#### 3. **Cognito Authentication Issues**
+### Debugging Commands
 
 ```bash
-# Verify callback URLs
-aws cognito-idp describe-user-pool-client \
-  --user-pool-id ap-southeast-2_XXXXXXXXX \
-  --client-id your-client-id \
-  --query 'UserPoolClient.CallbackURLs'
+# Get stack outputs
+./scripts/get-outputs.sh todo-app-dev
+
+# Get outputs in environment format
+./scripts/get-outputs.sh todo-app-dev env
+
+# Update Cognito URLs
+node scripts/update-cognito-urls.js
+
+# Health check
+./scripts/health-check.sh
 ```
 
-#### 4. **App Runner Deployment Issues**
+## 📚 Additional Resources
 
-```bash
-# Check service status
-aws apprunner describe-service \
-  --service-arn arn:aws:apprunner:ap-southeast-2:123456789012:service/...
-
-# View logs
-aws logs describe-log-groups \
-  --log-group-name-prefix "/aws/apprunner/"
-```
-
-## 🎯 Performance Optimizations
-
-### Frontend
-
-- **CloudFront**: Global edge caching
-- **Gzip Compression**: Enabled by default
-- **Browser Caching**: Configured via CloudFront
-- **Bundle Optimization**: Vite production build
-
-### Backend
-
-- **App Runner**: Auto-scaling based on demand
-- **DynamoDB**: On-demand billing mode
-- **Container**: Multi-stage build for minimal size
-- **Health Checks**: Built-in monitoring
-
-## 🔒 Security Features
-
-### Frontend
-
-- **HTTPS Only**: Enforced via CloudFront
-- **Origin Access Identity**: Secure S3 access
-- **CORS**: Configured for API access
-- **CSP Headers**: Content Security Policy
-
-### Backend
-
-- **IAM Roles**: Least privilege access
-- **VPC**: Optional network isolation
-- **Secrets**: Environment variables only
-- **Authentication**: Cognito JWT validation
-
-## 💰 Cost Optimization
-
-### Pay-per-Use Services
-
-- **App Runner**: Only pay for active requests
-- **DynamoDB**: On-demand billing
-- **CloudFront**: Pay for data transfer
-- **S3**: Pay for storage and requests
-
-### Cost Monitoring
-
-```bash
-# Set up billing alerts
-aws budgets create-budget \
-  --account-id 123456789012 \
-  --budget file://budget.json
-```
-
-## 🔄 Maintenance
-
-### Regular Tasks
-
-1. **Update Dependencies**: Monthly security updates
-2. **Monitor Costs**: Weekly cost reviews
-3. **Performance**: Monthly performance analysis
-4. **Security**: Quarterly security audits
-
-### Automated Tasks
-
-- **Container Updates**: Triggered by code changes
-- **Cache Invalidation**: Automatic on deployment
-- **Health Monitoring**: CloudWatch alarms
-- **Backup**: DynamoDB point-in-time recovery
-
-## 📊 Deployment Metrics
-
-### Key Performance Indicators
-
-- **Build Time**: Target < 5 minutes
-- **Deployment Time**: Target < 10 minutes
-- **Frontend Load Time**: Target < 2 seconds
-- **API Response Time**: Target < 200ms
-- **Uptime**: Target > 99.9%
-
-### Monitoring Tools
-
-- **CloudWatch**: AWS native monitoring
-- **App Runner Metrics**: Request count, response time
-- **CloudFront Metrics**: Cache hit ratio, origin latency
-- **DynamoDB Metrics**: Read/write capacity, throttling
-
-## 🚨 Disaster Recovery
-
-### Backup Strategy
-
-- **DynamoDB**: Point-in-time recovery enabled
-- **S3**: Versioning enabled for frontend assets
-- **ECR**: Image retention policy
-- **Infrastructure**: CDK code in version control
-
-### Recovery Procedures
-
-1. **Infrastructure**: Redeploy via CDK
-2. **Database**: Restore from point-in-time backup
-3. **Frontend**: Redeploy from latest build
-4. **Backend**: Redeploy from latest container image
+- [AWS CDK Documentation](https://docs.aws.amazon.com/cdk/)
+- [App Runner Documentation](https://docs.aws.amazon.com/apprunner/)
+- [CloudFormation Documentation](https://docs.aws.amazon.com/cloudformation/)
+- [Bitbucket Pipelines Documentation](https://support.atlassian.com/bitbucket-cloud/docs/get-started-with-bitbucket-pipelines/)
 
 ## 🎉 Success Criteria
 
